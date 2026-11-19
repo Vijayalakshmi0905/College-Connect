@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}College Connect - Canteen Ordering System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="hero-section mb-5 p-4 p-md-5 text-center text-md-start">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="hero-tagline d-inline-block mb-2">
+                    <i class="bi bi-stars me-1"></i> Smart Campus Dining
+                </span>
+                <h1 class="display-4 fw-bold mb-3">College Connect</h1>
+                <p class="lead mb-4" style="color: #d1fae5; font-size: 1.25rem;">
+                    Connecting Students, Orders and Canteen Staff seamlessly. Skip the crowded lines, pre-order meals, and pick up fresh food without the wait.
+                </p>
+                <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-md-start">
+                    <a href="#features" class="btn btn-emerald btn-lg px-4 shadow-sm">
+                        <i class="bi bi-compass me-2"></i>Explore Platform
+                    </a>
+                    <button type="button" class="btn btn-cream-outline btn-lg px-4" data-bs-toggle="modal" data-bs-target="#healthModal">
+                        <i class="bi bi-heart-pulse me-2"></i>Check Health Status
+                    </button>
+                </div>
+            </div>
+            <div class="col-lg-4 d-none d-lg-block text-center">
+                <div class="p-4" style="background: rgba(255, 255, 255, 0.1); border-radius: 1.5rem; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15);">
+                    <i class="bi bi-shop-window display-1 text-warning"></i>
+                    <h5 class="mt-3 text-white fw-semibold">Campus Canteen Hub</h5>
+                    <p class="small mb-0 text-white-50">Real-time orders &bull; Zero queue</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Highlights Section -->
+    <section id="features" class="mb-5">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold text-dark">Built for Campus Life</h2>
+            <p class="text-secondary">A unified ordering ecosystem connecting every stakeholder on campus.</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Student Experience -->
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-4 border-0">
+                    <div class="feature-icon-wrapper mb-3">
+                        <i class="bi bi-phone"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2">Student Pre-Orders</h5>
+                    <p class="text-secondary mb-0">
+                        Browse real-time canteen menus, select meals between lectures, and order ahead without waiting in long queues.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Real-time Updates -->
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-4 border-0">
+                    <div class="feature-icon-wrapper mb-3">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2">Live Order Status</h5>
+                    <p class="text-secondary mb-0">
+                        Stay informed at every step — from order placed, cooking in progress, to ready for pickup notifications.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Canteen Staff Dashboard -->
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-4 border-0">
+                    <div class="feature-icon-wrapper mb-3">
+                        <i class="bi bi-person-badge"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2">Staff Kitchen Display</h5>
+                    <p class="text-secondary mb-0">
+                        Kitchen staff receive incoming digital tickets, manage queue loads, and mark orders ready swiftly and accurately.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Platform Status Banner -->
+    <div class="alert alert-light border p-4 rounded-4 shadow-sm text-center" style="background-color: #ffffff;">
+        <div class="d-inline-flex align-items-center justify-content-center px-3 py-1 mb-2 rounded-pill" style="background-color: var(--emerald-soft); color: var(--emerald-dark); font-size: 0.85rem; font-weight: 600;">
+            <i class="bi bi-check-circle-fill me-2"></i> Initial Scaffold Ready
+        </div>
+        <h5 class="fw-bold text-dark mt-2 mb-1">Flask Application Initialized</h5>
+        <p class="text-muted small mb-0">
+            Initial architecture loaded with custom emerald-green and cream styling, Bootstrap 5 UI framework, and health-check routing.
+        </p>
+    </div>
+</div>
+{% endblock %}

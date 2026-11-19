@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}My Student Dashboard - College Connect{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <!-- Student Profile Banner -->
+    <div class="card border-0 shadow-sm p-4 p-md-5 mb-4" style="border-radius: 1.25rem; background: linear-gradient(135deg, var(--emerald-deep) 0%, var(--emerald-primary) 100%); color: #ffffff;">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <span class="badge px-3 py-1 rounded-pill mb-2" style="background-color: var(--emerald-light); color: #ffffff;">
+                    <i class="bi bi-mortarboard me-1"></i> Student Portal
+                </span>
+                <h2 class="fw-bold mb-1">{{ student.full_name if student else current_user.username }}</h2>
+                <p class="mb-3 text-white-50 small">
+                    ID: <strong class="text-white">{{ student.student_id if student else 'N/A' }}</strong> &bull;
+                    Dept: <span class="text-white">{{ student.department if student else 'General' }}</span> &bull;
+                    Year: <span class="text-white">{{ student.year_of_study if student else 'N/A' }}</span>
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('menu') }}" class="btn btn-warning text-dark fw-bold px-3 py-2 shadow-sm">
+                        <i class="bi bi-plus-circle me-1"></i> Pre-Order New Meal
+                    </a>
+                    <a href="{{ url_for('cart') }}" class="btn btn-outline-light px-3 py-2">
+                        <i class="bi bi-bag me-1"></i> View My Tray
+                    </a>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end mt-4 mt-md-0">
+                <div class="p-3 rounded-4 bg-white bg-opacity-10 border border-white border-opacity-25 d-inline-block text-start text-md-end">
+                    <small class="text-white-50 d-block">Registered Email</small>
+                    <span class="fw-semibold text-white small">{{ current_user.email }}</span>
+                    <small class="text-white-50 d-block mt-2">Mobile Phone</small>
+                    <span class="fw-semibold text-white small">{{ student.phone if student else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm p-3 bg-white rounded-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-secondary small text-uppercase fw-semibold">Total Orders</span>
+                        <h3 class="fw-bold text-dark mt-1 mb-0">{{ orders|length }}</h3>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 2.75rem; height: 2.75rem; background-color: var(--emerald-soft); color: var(--emerald-primary);">
+                        <i class="bi bi-receipt fs-5"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm p-3 bg-white rounded-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-secondary small text-uppercase fw-semibold">Active In Queue</span>
+                        <h3 class="fw-bold text-warning mt-1 mb-0">{{ active_orders|length }}</h3>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 2.75rem; height: 2.75rem; background-color: #fef3c7; color: #d97706;">
+                        <i class="bi bi-clock-history fs-5"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card border-0 shadow-sm p-3 bg-white rounded-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-secondary small text-uppercase fw-semibold">Total Spent</span>
+                        <h3 class="fw-bold text-success mt-1 mb-0">₹{{ total_spent|round(2) }}</h3>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 2.75rem; height: 2.75rem; background-color: #ecfdf5; color: #059669;">
+                        <i class="bi bi-wallet2 fs-5"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Orders Section -->
+    <div class="mb-5">
+        <h4 class="fw-bold text-dark mb-3 d-flex align-items-center">
+            <i class="bi bi-fire text-danger me-2"></i> Current Active Orders
+            {% if active_orders %}
+            <span class="badge bg-warning text-dark ms-2 rounded-pill small">{{ active_orders|length }}</span>
+            {% endif %}
+        </h4>
+
+        {% if active_orders %}
+        <div class="row g-3">
+            {% for order in active_orders %}
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm p-3 bg-white rounded-4 h-100 border-start border-4 border-warning">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-dark rounded-pill">Token #{{ order.token_number }}</span>
+                            <span class="fw-bold text-dark">Order #{{ order.order_id }}</span>
+                        </div>
+                        {% if order.status == 'CONFIRMED' %}
+                            <span class="badge bg-primary rounded-pill">CONFIRMED</span>
+                        {% elif order.status == 'PREPARING' %}
+                            <span class="badge bg-warning text-dark rounded-pill">PREPARING</span>
+                        {% elif order.status == 'READY FOR PICKUP' %}
+                            <span class="badge bg-success rounded-pill animate-pulse">READY FOR PICKUP</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="small text-secondary mb-2">
+                        <i class="bi bi-clock me-1 text-muted"></i> Scheduled: <strong>{{ order.pickup_slot }}</strong>
+                    </div>
+
+                    <div class="bg-light p-2 rounded-3 small mb-3">
+                        {% for item in order.items %}
+                        <div class="d-flex justify-content-between">
+                            <span>{{ item.quantity }}&times; {{ item.name }}</span>
+                            <span class="fw-semibold text-muted">₹{{ item.price * item.quantity }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-auto pt-2 border-top">
+                        <span class="fw-bold text-dark fs-6">₹{{ order.total_amount }}</span>
+                        <a href="{{ url_for('order_confirmation') }}?order_id={{ order.order_id }}" class="btn btn-emerald btn-sm px-3">
+                            <i class="bi bi-broadcast me-1"></i> Live Tracking
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card border-0 shadow-sm p-4 bg-white rounded-4 text-center">
+            <i class="bi bi-check2-circle display-4 text-success mb-2"></i>
+            <h6 class="fw-bold text-dark mb-1">No Active Orders in Queue</h6>
+            <p class="text-secondary small mb-3">You don't have any meals currently being prepared. Hungry between classes?</p>
+            <div>
+                <a href="{{ url_for('menu') }}" class="btn btn-emerald btn-sm px-4">Browse Menu & Order</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Past Order History -->
+    <div>
+        <h4 class="fw-bold text-dark mb-3 d-flex align-items-center">
+            <i class="bi bi-clock-history text-secondary me-2"></i> Order History
+        </h4>
+
+        {% if orders %}
+        <div class="card border-0 shadow-sm bg-white rounded-4 overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-secondary">
+                        <tr>
+                            <th scope="col" class="ps-4">Order ID & Token</th>
+                            <th scope="col">Date & Time</th>
+                            <th scope="col">Items</th>
+                            <th scope="col">Total</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark d-block">#{{ order.order_id }}</span>
+                                <span class="badge bg-light text-dark border">Token {{ order.token_number }}</span>
+                            </td>
+                            <td class="small text-secondary">
+                                {{ order.created_at.strftime('%d %b %Y, %I:%M %p') if order.created_at else 'N/A' }}
+                            </td>
+                            <td class="small">
+                                <span class="text-dark fw-semibold">{{ order.item_count }} item(s)</span>
+                                <div class="text-muted text-truncate" style="max-width: 220px;">
+                                    {% for item in order.items %}
+                                        {{ item.quantity }}x {{ item.name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="fw-bold text-dark">₹{{ order.total_amount }}</td>
+                            <td>
+                                {% if order.status == 'CONFIRMED' %}
+                                    <span class="badge bg-primary rounded-pill">CONFIRMED</span>
+                                {% elif order.status == 'PREPARING' %}
+                                    <span class="badge bg-warning text-dark rounded-pill">PREPARING</span>
+                                {% elif order.status == 'READY FOR PICKUP' %}
+                                    <span class="badge bg-success rounded-pill">READY</span>
+                                {% elif order.status == 'COMPLETED' %}
+                                    <span class="badge bg-secondary rounded-pill">COMPLETED</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="{{ url_for('order_confirmation') }}?order_id={{ order.order_id }}" class="btn btn-outline-secondary btn-sm" title="View / Print Token">
+                                    <i class="bi bi-receipt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="card border-0 shadow-sm p-4 bg-white rounded-4 text-center">
+            <p class="text-secondary small mb-0">No past orders found in your student account.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

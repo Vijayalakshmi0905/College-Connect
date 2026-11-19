@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - College Connect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-5">
+            <!-- Login Card -->
+            <div class="card border-0 shadow-sm p-4 p-md-5" style="border-radius: 1.25rem; background-color: #ffffff;">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px; border-radius: 50%; background-color: var(--emerald-soft); color: var(--emerald-primary);">
+                        <i class="bi bi-person-lock fs-3"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">Sign In</h3>
+                    <p class="text-secondary small mb-0">Select your campus role and enter your credentials.</p>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show small py-2 px-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Role Selector Tabs -->
+                <ul class="nav nav-pills nav-fill mb-4 p-1 rounded-pill bg-light" id="roleTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill py-2 active fw-semibold small" id="student-tab" data-role="STUDENT" type="button">
+                            <i class="bi bi-mortarboard me-1"></i> Student
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill py-2 fw-semibold small" id="staff-tab" data-role="STAFF" type="button">
+                            <i class="bi bi-person-badge me-1"></i> Staff
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill py-2 fw-semibold small" id="admin-tab" data-role="ADMIN" type="button">
+                            <i class="bi bi-shield-lock me-1"></i> Admin
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Login Form -->
+                <form method="POST" action="{{ url_for('login') }}" class="needs-validation" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="role" id="selectedRoleInput" value="STUDENT">
+
+                    <div class="mb-3">
+                        <label for="identifier" class="form-label fw-semibold text-dark small">
+                            Email or Username <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-envelope"></i></span>
+                            <input type="text" class="form-control" id="identifier" name="identifier" placeholder="e.g., student@collegeconnect.com" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label fw-semibold text-dark small">
+                            Password <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-key"></i></span>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="remember" id="rememberMe">
+                            <label class="form-check-label small text-secondary" for="rememberMe">Remember me</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 fw-bold shadow-sm mb-3">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                    </button>
+                </form>
+
+                <div class="text-center pt-3 border-top" id="registerPrompt">
+                    <span class="text-secondary small">New student on campus?</span>
+                    <a href="{{ url_for('register') }}" class="fw-bold small text-decoration-none ms-1" style="color: var(--emerald-primary);">
+                        Register Here <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+
+                {% if config.get('APP_ENV') != 'production' %}
+                <!-- Local demo credentials are never disclosed in production. -->
+                <div class="mt-4 p-3 rounded-3 bg-light border small text-muted">
+                    <div class="fw-bold text-dark mb-1"><i class="bi bi-info-circle me-1 text-success"></i> Default System Credentials:</div>
+                    <ul class="mb-0 ps-3" style="font-size: 0.78rem;">
+                        <li><strong>Admin:</strong> admin@collegeconnect.com / Admin@123</li>
+                        <li><strong>Staff:</strong> staff@collegeconnect.com / Staff@123</li>
+                        <li><strong>Student:</strong> student@collegeconnect.com / Student@123</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const roleButtons = document.querySelectorAll('#roleTabs button');
+    const roleInput = document.getElementById('selectedRoleInput');
+    const identifierInput = document.getElementById('identifier');
+    const registerPrompt = document.getElementById('registerPrompt');
+
+    roleButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            roleButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const role = btn.getAttribute('data-role');
+            roleInput.value = role;
+
+            if (role === 'STUDENT') {
+                identifierInput.placeholder = 'e.g., student@collegeconnect.com';
+                registerPrompt.classList.remove('d-none');
+            } else if (role === 'STAFF') {
+                identifierInput.placeholder = 'e.g., staff@collegeconnect.com or STF-001';
+                registerPrompt.classList.add('d-none');
+            } else if (role === 'ADMIN') {
+                identifierInput.placeholder = 'e.g., admin@collegeconnect.com';
+                registerPrompt.classList.add('d-none');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

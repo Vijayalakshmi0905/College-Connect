@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}Canteen Staff Dashboard - College Connect{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-5 pb-5">
+    <!-- Dashboard Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center py-3 mb-3 border-bottom">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h2 class="fw-bold text-dark mb-0">Canteen Staff Kitchen Dashboard</h2>
+                <span class="badge bg-emerald text-white rounded-pill px-3 py-1" style="background-color: var(--emerald-primary);">
+                    <i class="bi bi-shield-check me-1"></i> Live Operations
+                </span>
+            </div>
+            <p class="text-secondary small mb-0">
+                Manage incoming student orders, transition kitchen preparation queues, and call pickup tokens in real time.
+            </p>
+        </div>
+        <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+            <div class="d-flex align-items-center bg-white px-3 py-2 rounded-pill border shadow-sm small">
+                <span class="status-indicator-dot healthy me-2"></span>
+                <span class="text-secondary fw-semibold" id="pollingStatusText">Live Sync: Active (5s)</span>
+            </div>
+            <button type="button" class="btn btn-emerald btn-sm px-3 shadow-sm" id="manualRefreshBtn">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Now
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. Four Summary Counter Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Total Orders -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm p-3 h-100" style="border-radius: 1rem; background-color: #ffffff; border-left: 5px solid var(--emerald-primary) !important;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-secondary text-uppercase fw-semibold" style="font-size: 0.8rem; letter-spacing: 0.5px;">Total Orders</span>
+                        <h2 class="fw-bold text-dark mt-1 mb-0" id="statTotal">0</h2>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 3rem; height: 3rem; background-color: var(--emerald-soft); color: var(--emerald-primary);">
+                        <i class="bi bi-receipt fs-4"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">All orders recorded</small>
+            </div>
+        </div>
+
+        <!-- Pending (Confirmed) Orders -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm p-3 h-100" style="border-radius: 1rem; background-color: #ffffff; border-left: 5px solid #0284c7 !important;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-secondary text-uppercase fw-semibold" style="font-size: 0.8rem; letter-spacing: 0.5px;">Pending Orders</span>
+                        <h2 class="fw-bold text-primary mt-1 mb-0" id="statPending">0</h2>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 3rem; height: 3rem; background-color: #e0f2fe; color: #0284c7;">
+                        <i class="bi bi-hourglass-split fs-4"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">Awaiting kitchen prep</small>
+            </div>
+        </div>
+
+        <!-- Preparing Orders -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm p-3 h-100" style="border-radius: 1rem; background-color: #ffffff; border-left: 5px solid #f59e0b !important;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-secondary text-uppercase fw-semibold" style="font-size: 0.8rem; letter-spacing: 0.5px;">Preparing</span>
+                        <h2 class="fw-bold text-warning mt-1 mb-0" id="statPreparing">0</h2>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 3rem; height: 3rem; background-color: #fef3c7; color: #d97706;">
+                        <i class="bi bi-fire fs-4"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">Cooking on stove / counter</small>
+            </div>
+        </div>
+
+        <!-- Completed Orders -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm p-3 h-100" style="border-radius: 1rem; background-color: #ffffff; border-left: 5px solid #10b981 !important;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <span class="text-secondary text-uppercase fw-semibold" style="font-size: 0.8rem; letter-spacing: 0.5px;">Completed</span>
+                        <h2 class="fw-bold text-success mt-1 mb-0" id="statCompleted">0</h2>
+                    </div>
+                    <div class="feature-icon-wrapper" style="width: 3rem; height: 3rem; background-color: #ecfdf5; color: #059669;">
+                        <i class="bi bi-check2-all fs-4"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">Handed over to students</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Controls & Filter Bar -->
+    <div class="card border-0 shadow-sm p-3 mb-4" style="border-radius: 1rem; background-color: #ffffff;">
+        <div class="row g-3 align-items-center justify-content-between">
+            <!-- Search by Order ID, Token, or Student -->
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="staffSearchInput" class="form-control border-start-0" placeholder="Search Order ID, Token, Student Name, Roll No...">
+                    <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" title="Clear Search">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Filter Pills -->
+            <div class="col-md-7">
+                <div class="d-flex gap-2 flex-wrap justify-content-md-end filter-container">
+                    <button type="button" class="btn btn-filter active status-filter-btn" data-status="all">
+                        All Orders
+                    </button>
+                    <button type="button" class="btn btn-filter status-filter-btn" data-status="CONFIRMED">
+                        <i class="bi bi-clock me-1 text-primary"></i> Confirmed
+                    </button>
+                    <button type="button" class="btn btn-filter status-filter-btn" data-status="PREPARING">
+                        <i class="bi bi-fire me-1 text-warning"></i> Preparing
+                    </button>
+                    <button type="button" class="btn btn-filter status-filter-btn" data-status="READY FOR PICKUP">
+                        <i class="bi bi-bell me-1 text-success"></i> Ready
+                    </button>
+                    <button type="button" class="btn btn-filter status-filter-btn" data-status="COMPLETED">
+                        <i class="bi bi-check2-circle me-1 text-secondary"></i> Completed
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert / Message Banner -->
+    <div id="dashboardAlert" class="alert alert-dismissible fade show d-none mb-3" role="alert">
+        <span id="dashboardAlertText"></span>
+        <button type="button" class="btn-close" aria-label="Close" onclick="document.getElementById('dashboardAlert').classList.add('d-none')"></button>
+    </div>
+
+    <!-- 3. Orders Container -->
+    <div id="ordersContainer">
+        <!-- Rendered dynamically via JavaScript -->
+        <div class="text-center py-5" id="ordersLoadingSpinner">
+            <div class="spinner-border text-success mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading orders...</span>
+            </div>
+            <p class="text-secondary fw-semibold">Loading orders queue from canteen database...</p>
+        </div>
+    </div>
+
+    <!-- Empty Orders Placeholder -->
+    <div id="emptyOrdersMessage" class="d-none text-center py-5 bg-white rounded-4 shadow-sm p-5 border">
+        <i class="bi bi-inbox display-3 text-muted mb-3 d-block"></i>
+        <h4 class="fw-bold text-dark mb-1">No Orders Found</h4>
+        <p class="text-secondary small mb-0">No active orders match your selected filter or search keyword.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let currentStatusFilter = 'all';
+    let currentSearchTerm = '';
+    let knownOrderIds = new Set();
+    let isInitialLoad = true;
+
+    const ordersContainer = document.getElementById('ordersContainer');
+    const emptyOrdersMessage = document.getElementById('emptyOrdersMessage');
+    const searchInput = document.getElementById('staffSearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const filterButtons = document.querySelectorAll('.status-filter-btn');
+    const manualRefreshBtn = document.getElementById('manualRefreshBtn');
+    const alertBox = document.getElementById('dashboardAlert');
+    const alertText = document.getElementById('dashboardAlertText');
+
+    const statTotal = document.getElementById('statTotal');
+    const statPending = document.getElementById('statPending');
+    const statPreparing = document.getElementById('statPreparing');
+    const statCompleted = document.getElementById('statCompleted');
+
+    function showAlert(message, type = 'success') {
+        alertBox.className = `alert alert-${type} alert-dismissible fade show mb-3 d-flex align-items-center shadow-sm`;
+        alertText.textContent = message;
+        alertBox.classList.remove('d-none');
+        setTimeout(() => {
+            alertBox.classList.add('d-none');
+        }, 4000);
+    }
+
+    /**
+     * Fetch summary counts and update top cards
+     */
+    async function fetchStats() {
+        try {
+            const res = await fetch('/api/staff/stats');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.stats) {
+                    statTotal.textContent = data.stats.total;
+                    statPending.textContent = data.stats.pending || data.stats.confirmed;
+                    statPreparing.textContent = data.stats.preparing;
+                    statCompleted.textContent = data.stats.completed;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching dashboard statistics:', err);
+        }
+    }
+
+    /**
+     * Generate badge HTML based on status
+     */
+    function getStatusBadge(status) {
+        switch (status) {
+            case 'CONFIRMED':
+                return `<span class="badge bg-primary px-3 py-2 rounded-pill"><i class="bi bi-clock-history me-1"></i> CONFIRMED</span>`;
+            case 'PREPARING':
+                return `<span class="badge bg-warning text-dark px-3 py-2 rounded-pill"><i class="bi bi-fire me-1"></i> PREPARING</span>`;
+            case 'READY FOR PICKUP':
+                return `<span class="badge bg-success px-3 py-2 rounded-pill"><i class="bi bi-bell-fill me-1"></i> READY FOR PICKUP</span>`;
+            case 'COMPLETED':
+                return `<span class="badge bg-secondary px-3 py-2 rounded-pill"><i class="bi bi-check2-all me-1"></i> COMPLETED</span>`;
+            default:
+                return `<span class="badge bg-light text-dark px-3 py-2 rounded-pill">${escapeHtml(status)}</span>`;
+        }
+    }
+
+    /**
+     * Generate Action Buttons depending on current status
+     */
+    function getActionControls(order) {
+        const { order_id, status } = order;
+
+        if (status === 'COMPLETED') {
+            return `
+                <div class="text-secondary small fw-semibold">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i> Order Completed
+                </div>
+            `;
+        }
+
+        let nextBtn = '';
+        if (status === 'CONFIRMED') {
+            nextBtn = `
+                <button type="button" class="btn btn-warning btn-sm fw-bold action-status-btn px-3 shadow-sm" data-order-id="${escapeHtml(order_id)}" data-target-status="PREPARING">
+                    <i class="bi bi-fire me-1"></i> Start Preparing
+                </button>
+            `;
+        } else if (status === 'PREPARING') {
+            nextBtn = `
+                <button type="button" class="btn btn-success btn-sm fw-bold action-status-btn px-3 shadow-sm" data-order-id="${escapeHtml(order_id)}" data-target-status="READY FOR PICKUP">
+                    <i class="bi bi-bell me-1"></i> Mark Ready for Pickup
+                </button>
+            `;
+        } else if (status === 'READY FOR PICKUP') {
+            nextBtn = `
+                <button type="button" class="btn btn-emerald btn-sm fw-bold action-status-btn px-3 shadow-sm" data-order-id="${escapeHtml(order_id)}" data-target-status="COMPLETED">
+                    <i class="bi bi-check2-circle me-1"></i> Complete Order
+                </button>
+            `;
+        }
+
+        const dropdown = `
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    Status
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><h6 class="dropdown-header">Move Status To:</h6></li>
+                    <li><a class="dropdown-item select-status-item ${status === 'CONFIRMED' ? 'disabled' : ''}" href="#" data-order-id="${escapeHtml(order_id)}" data-target-status="CONFIRMED">CONFIRMED</a></li>
+                    <li><a class="dropdown-item select-status-item ${status === 'PREPARING' ? 'disabled' : ''}" href="#" data-order-id="${escapeHtml(order_id)}" data-target-status="PREPARING">PREPARING</a></li>
+                    <li><a class="dropdown-item select-status-item ${status === 'READY FOR PICKUP' ? 'disabled' : ''}" href="#" data-order-id="${escapeHtml(order_id)}" data-target-status="READY FOR PICKUP">READY FOR PICKUP</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-success select-status-item" href="#" data-order-id="${escapeHtml(order_id)}" data-target-status="COMPLETED">COMPLETED</a></li>
+                </ul>
+            </div>
+        `;
+
+        return `
+            <div class="d-flex align-items-center gap-2">
+                ${nextBtn}
+                ${dropdown}
+            </div>
+        `;
+    }
+
+    /**
+     * Fetch all orders and render the cards
+     */
+    async function fetchOrders(silently = false) {
+        try {
+            const params = new URLSearchParams();
+            if (currentStatusFilter !== 'all') {
+                params.set('status', currentStatusFilter);
+            }
+            if (currentSearchTerm) {
+                params.set('search', currentSearchTerm);
+            }
+
+            const res = await fetch(`/api/staff/orders?${params.toString()}`);
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+            const data = await res.json();
+            const orders = data.orders || [];
+
+            // Detect new orders on poll
+            if (!isInitialLoad && silently) {
+                orders.forEach(o => {
+                    if (!knownOrderIds.has(o.order_id)) {
+                        showToast('New Student Order', `Order #${o.order_id} (Token ${o.token_number}) received!`, 'bi-bell-fill');
+                    }
+                });
+            }
+
+            // Update known orders set
+            knownOrderIds = new Set(orders.map(o => o.order_id));
+            isInitialLoad = false;
+
+            // Render Orders
+            if (orders.length === 0) {
+                ordersContainer.innerHTML = '';
+                emptyOrdersMessage.classList.remove('d-none');
+                return;
+            }
+
+            emptyOrdersMessage.classList.add('d-none');
+
+            const cardsHtml = orders.map(order => {
+                const items = order.items || order.ordered_items || [];
+                const itemsListHtml = items.map(i => `
+                    <div class="d-flex justify-content-between align-items-center small py-1 border-bottom border-light">
+                        <span class="text-dark">
+                            <strong class="text-success">${escapeHtml(i.quantity)}&times;</strong> ${escapeHtml(i.name)}
+                        </span>
+                        <span class="text-muted">₹${escapeHtml(i.price * i.quantity)}</span>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="card border-0 shadow-sm mb-3 overflow-hidden" style="border-radius: 1rem; background-color: #ffffff;" id="order-card-${escapeHtml(order.order_id)}">
+                        <div class="card-body p-4">
+                            <div class="row g-3 align-items-center">
+                                <!-- Token & Order ID -->
+                                <div class="col-md-3 border-end-md">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="token-circle" style="width: 72px; height: 72px;">
+                                            <span style="font-size: 0.65rem; letter-spacing: 1px;">TOKEN</span>
+                                            <span class="token-number fs-4">${escapeHtml(order.token_number)}</span>
+                                        </div>
+                                        <div>
+                                            <h5 class="fw-bold text-dark mb-0">#${escapeHtml(order.order_id)}</h5>
+                                            <small class="text-muted d-block">${escapeHtml(order.created_at || 'Just now')}</small>
+                                            <div class="mt-2">
+                                                ${getStatusBadge(order.status)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Student Details & Pickup Time -->
+                                <div class="col-md-3 border-end-md">
+                                    <div class="small">
+                                        <div class="mb-1">
+                                            <span class="text-muted d-block">Student:</span>
+                                            <strong class="text-dark fs-6">${escapeHtml(order.student_name)}</strong>
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="text-muted">ID / Roll No:</span>
+                                            <span class="fw-semibold text-dark">${escapeHtml(order.student_id)}</span>
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="text-muted">Contact:</span>
+                                            <span class="fw-semibold text-dark">${escapeHtml(order.phone)}</span>
+                                        </div>
+                                        <div class="mt-2 p-2 rounded-2 bg-light">
+                                            <i class="bi bi-clock-history text-success me-1"></i>
+                                            <strong class="text-dark">${escapeHtml(order.pickup_slot)}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Ordered Food Items List -->
+                                <div class="col-md-3 border-end-md">
+                                    <h6 class="fw-bold text-dark mb-2 small text-uppercase text-secondary">
+                                        <i class="bi bi-basket2 text-success me-1"></i>Items (${escapeHtml(order.item_count || items.length)})
+                                    </h6>
+                                    <div style="max-height: 120px; overflow-y: auto;">
+                                        ${itemsListHtml}
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                                        <span class="small fw-semibold text-secondary">Total:</span>
+                                        <span class="fw-bold fs-5" style="color: var(--emerald-deep);">₹${escapeHtml(order.total_amount || order.total)}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Actions & Quick Controls -->
+                                <div class="col-md-3 text-md-end">
+                                    <span class="text-muted small d-block mb-2">Update Order Status:</span>
+                                    <div class="d-flex justify-content-md-end">
+                                        ${getActionControls(order)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            ordersContainer.innerHTML = cardsHtml;
+            attachActionListeners();
+
+        } catch (err) {
+            console.error('Error loading staff orders:', err);
+            if (!silently) {
+                ordersContainer.innerHTML = `
+                    <div class="alert alert-danger shadow-sm text-center p-4">
+                        <i class="bi bi-exclamation-triangle-fill fs-3 mb-2 d-block"></i>
+                        <h5>Failed to load orders from server</h5>
+                    <p class="small mb-0">${escapeHtml(err.message)}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    /**
+     * Submit status update to backend API
+     */
+    async function updateOrderStatus(orderId, newStatus) {
+        try {
+            const res = await fetch(`/api/staff/orders/${encodeURIComponent(orderId)}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to update order status');
+            }
+
+            showAlert(`Success! Order #${orderId} transitioned to ${newStatus}.`, 'success');
+            showToast('Status Updated', `Order #${orderId} is now ${newStatus}`, 'bi-check-circle-fill');
+
+            // Refresh immediately
+            await fetchStats();
+            await fetchOrders(true);
+
+        } catch (err) {
+            console.error('Update status error:', err);
+            showAlert(`Update Failed: ${err.message}`, 'danger');
+        }
+    }
+
+    /**
+     * Attach click listeners to all status buttons and dropdown links
+     */
+    function attachActionListeners() {
+        document.querySelectorAll('.action-status-btn').forEach(btn => {
+            btn.onclick = () => {
+                const orderId = btn.getAttribute('data-order-id');
+                const targetStatus = btn.getAttribute('data-target-status');
+                updateOrderStatus(orderId, targetStatus);
+            };
+        });
+
+        document.querySelectorAll('.select-status-item').forEach(item => {
+            item.onclick = (e) => {
+                e.preventDefault();
+                const orderId = item.getAttribute('data-order-id');
+                const targetStatus = item.getAttribute('data-target-status');
+                updateOrderStatus(orderId, targetStatus);
+            };
+        });
+    }
+
+    // Filter Buttons Listener
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentStatusFilter = btn.getAttribute('data-status');
+            fetchOrders(false);
+        });
+    });
+
+    // Search Input Listener with Debounce
+    let searchTimeout = null;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            currentSearchTerm = e.target.value.trim();
+            fetchOrders(false);
+        }, 300);
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        currentSearchTerm = '';
+        fetchOrders(false);
+    });
+
+    // Manual Refresh Button
+    manualRefreshBtn.addEventListener('click', async () => {
+        manualRefreshBtn.disabled = true;
+        manualRefreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
+        await fetchStats();
+        await fetchOrders(false);
+        manualRefreshBtn.disabled = false;
+        manualRefreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Refresh Now';
+    });
+
+    // Initial Data Fetch
+    fetchStats();
+    fetchOrders(false);
+
+    // Live Automatic Polling every 5 seconds (5000 ms)
+    setInterval(() => {
+        fetchStats();
+        fetchOrders(true);
+    }, 5000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Student Registration - College Connect{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm p-4 p-md-5" style="border-radius: 1.25rem; background-color: #ffffff;">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px; border-radius: 50%; background-color: var(--emerald-soft); color: var(--emerald-primary);">
+                        <i class="bi bi-mortarboard-fill fs-3"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">Student Registration</h3>
+                    <p class="text-secondary small mb-0">Create your campus canteen account to track pre-orders and skip lines.</p>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show small py-2 px-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('register') }}" class="needs-validation" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="row g-3">
+                        <!-- Full Name -->
+                        <div class="col-sm-6">
+                            <label for="fullName" class="form-label fw-semibold text-dark small">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="fullName" name="full_name" placeholder="e.g., Aarav Sharma" required minlength="2">
+                        </div>
+
+                        <!-- Student ID -->
+                        <div class="col-sm-6">
+                            <label for="studentId" class="form-label fw-semibold text-dark small">Student ID / Roll No. <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="studentId" name="student_id" placeholder="e.g., CS2026-084" required minlength="3">
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-sm-6">
+                            <label for="email" class="form-label fw-semibold text-dark small">Campus Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" placeholder="student@collegeconnect.com" required>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="col-sm-6">
+                            <label for="phone" class="form-label fw-semibold text-dark small">Phone Number <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-secondary small">+91</span>
+                                <input type="tel" class="form-control" id="phone" name="phone" placeholder="10-digit number" required pattern="^[6-9][0-9]{9}$">
+                            </div>
+                        </div>
+
+                        <!-- Department -->
+                        <div class="col-sm-6">
+                            <label for="department" class="form-label fw-semibold text-dark small">Department</label>
+                            <select class="form-select" id="department" name="department">
+                                <option value="Computer Science" selected>Computer Science & Engg</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Electronics">Electronics & Comm.</option>
+                                <option value="Mechanical">Mechanical Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                                <option value="Management Studies">Management (MBA/BBA)</option>
+                                <option value="Applied Sciences">Applied Sciences</option>
+                            </select>
+                        </div>
+
+                        <!-- Year of Study -->
+                        <div class="col-sm-6">
+                            <label for="yearOfStudy" class="form-label fw-semibold text-dark small">Year of Study</label>
+                            <select class="form-select" id="yearOfStudy" name="year_of_study">
+                                <option value="1st Year">1st Year (Freshman)</option>
+                                <option value="2nd Year">2nd Year (Sophomore)</option>
+                                <option value="3rd Year" selected>3rd Year (Junior)</option>
+                                <option value="4th Year">4th Year (Senior)</option>
+                                <option value="Postgraduate">Postgraduate</option>
+                            </select>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="col-sm-6">
+                            <label for="password" class="form-label fw-semibold text-dark small">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="At least 6 characters" required minlength="6">
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="col-sm-6">
+                            <label for="confirmPassword" class="form-label fw-semibold text-dark small">Confirm Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Repeat password" required minlength="6">
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3 mb-4">
+                        <input class="form-check-input" type="checkbox" id="termsCheck" required>
+                        <label class="form-check-label small text-secondary" for="termsCheck">
+                            I agree to the campus dining guidelines & queue policy.
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 fw-bold shadow-sm mb-3">
+                        <i class="bi bi-person-plus me-1"></i> Register Account
+                    </button>
+                </form>
+
+                <div class="text-center pt-3 border-top">
+                    <span class="text-secondary small">Already have a student account?</span>
+                    <a href="{{ url_for('login') }}" class="fw-bold small text-decoration-none ms-1" style="color: var(--emerald-primary);">
+                        Sign In Here <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

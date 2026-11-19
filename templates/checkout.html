@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Student Checkout - College Connect{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <div class="py-3 mb-2">
+        <a href="{{ url_for('cart') }}" class="text-decoration-none text-secondary small">
+            <i class="bi bi-arrow-left me-1"></i> Back to Tray
+        </a>
+        <h2 class="fw-bold text-dark mt-2 mb-1">Student Checkout</h2>
+        <p class="text-secondary small mb-0">Enter your student information and choose your scheduled pickup window.</p>
+    </div>
+
+    <!-- Empty Cart Warning (Hidden if cart has items) -->
+    <div id="checkoutEmptyCartNotice" class="d-none text-center py-5">
+        <div class="p-5 mx-auto bg-white rounded-4 shadow-sm" style="max-width: 500px;">
+            <i class="bi bi-cart-x display-3 text-warning mb-3 d-block"></i>
+            <h4 class="fw-bold text-dark mb-2">No Items in Cart</h4>
+            <p class="text-secondary mb-4">Please add meals to your tray before proceeding to checkout.</p>
+            <a href="{{ url_for('menu') }}" class="btn btn-emerald px-4 py-2">
+                <i class="bi bi-grid me-2"></i>Browse Menu
+            </a>
+        </div>
+    </div>
+
+    <!-- Checkout Main Form & Order Summary -->
+    <div id="checkoutMainContainer" class="row g-4">
+        <!-- Form Column -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm p-4" style="border-radius: 1rem; background-color: #ffffff;">
+                <h5 class="fw-bold text-dark mb-3 pb-2 border-bottom">
+                    <i class="bi bi-person-lines-fill text-success me-2"></i>Student Details
+                </h5>
+
+                <!-- Top Error Alert Banner -->
+                <div id="checkoutAlertBox" class="alert alert-danger d-none d-flex align-items-center mb-3 py-2 px-3" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill me-2 fs-5 flex-shrink-0"></i>
+                    <span id="checkoutAlertMessage"></span>
+                </div>
+
+                <form id="checkoutForm" novalidate>
+                    <!-- Student Full Name -->
+                    <div class="mb-3">
+                        <label for="studentName" class="form-label fw-semibold text-dark">
+                            Full Name <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control" id="studentName" placeholder="e.g., Aarav Sharma" required minlength="2">
+                        </div>
+                        <div id="nameFeedback" class="text-danger small mt-1 d-none">Please enter your full name (minimum 2 characters).</div>
+                    </div>
+
+                    <!-- Student ID / Roll Number -->
+                    <div class="mb-3">
+                        <label for="studentId" class="form-label fw-semibold text-dark">
+                            Student ID / Roll No. <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-card-text"></i></span>
+                            <input type="text" class="form-control" id="studentId" placeholder="e.g., CS2026-084 or 2024/BCS/012" required minlength="3">
+                        </div>
+                        <div id="idFeedback" class="text-danger small mt-1 d-none">Please provide a valid Student ID or Roll Number (minimum 3 characters).</div>
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="mb-3">
+                        <label for="studentPhone" class="form-label fw-semibold text-dark">
+                            Mobile Phone Number <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary fw-semibold"><i class="bi bi-telephone me-1"></i> +91</span>
+                            <input type="tel" class="form-control" id="studentPhone" placeholder="10-digit mobile number (e.g., 9876543210)" maxlength="15" required>
+                        </div>
+                        <div id="phoneFeedback" class="text-danger small mt-1 d-none">Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.</div>
+                        <small class="text-muted d-block mt-1">SMS notification and pickup token will be linked to this number.</small>
+                    </div>
+
+                    <!-- Pickup Time Slot -->
+                    <div class="mb-4">
+                        <label for="pickupSlot" class="form-label fw-semibold text-dark">
+                            Pickup Time Window <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-clock"></i></span>
+                            <select class="form-select" id="pickupSlot" required>
+                                <option value="" disabled selected>Select an upcoming pickup slot...</option>
+                                <option value="Immediate (15-20 Mins)">Fast Prep: In 15 - 20 Mins (Next Break)</option>
+                                <option value="In 30-35 Mins">In 30 - 35 Mins</option>
+                                <option value="In 45 Mins">In 45 Mins</option>
+                                <option value="12:30 PM - Lunch Slot 1">12:30 PM - Lunch Slot 1</option>
+                                <option value="01:15 PM - Lunch Slot 2">01:15 PM - Lunch Slot 2</option>
+                                <option value="03:45 PM - Evening Tea & Snack">03:45 PM - Evening Tea & Snack</option>
+                            </select>
+                        </div>
+                        <div id="slotFeedback" class="text-danger small mt-1 d-none">Please select when you want to pick up your order.</div>
+                    </div>
+
+                    <!-- Payment Mode -->
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-dark">Payment Method</label>
+                        <div class="p-3 border rounded-3 bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="paymentOption" id="payAtCounter" value="Pay at Canteen Counter / UPI" checked>
+                                <label class="form-check-label fw-semibold text-dark" for="payAtCounter">
+                                    <i class="bi bi-qr-code-scan me-1 text-success"></i> Pay at Counter (UPI QR / Cash)
+                                </label>
+                                <div class="small text-muted ps-4">Scan the canteen UPI QR code or pay cash when your token is called.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submitOrderBtn" class="btn btn-emerald w-100 py-3 fs-5 fw-bold shadow-sm">
+                        <i class="bi bi-check2-circle me-2"></i> Confirm & Generate Pickup Token
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Order Summary Sidebar -->
+        <div class="col-lg-5">
+            <div class="card order-summary-card shadow-sm p-4 sticky-top" style="top: 80px;">
+                <h5 class="fw-bold text-dark mb-3 pb-2 border-bottom">
+                    <i class="bi bi-receipt text-success me-2"></i>Items in this Order
+                </h5>
+
+                <div id="checkoutItemsList" class="mb-3" style="max-height: 280px; overflow-y: auto;">
+                    <!-- Injected via JavaScript -->
+                </div>
+
+                <hr class="my-3">
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Subtotal</span>
+                    <span class="fw-semibold text-dark" id="checkoutSubtotal">₹0</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Canteen Packaging Fee</span>
+                    <span class="text-success fw-medium">FREE</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top mb-3">
+                    <span class="fw-bold text-dark fs-5">Total to Pay</span>
+                    <span class="fw-bold fs-4" style="color: var(--emerald-deep);" id="checkoutTotal">₹0</span>
+                </div>
+
+                <div class="alert alert-success border-0 small mb-0 d-flex align-items-center" style="background-color: var(--emerald-soft); color: var(--emerald-deep);">
+                    <i class="bi bi-info-circle-fill fs-5 me-2 flex-shrink-0"></i>
+                    <div>
+                        Your token number will be called on the kitchen display as soon as your order is packaged.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const mainContainer = document.getElementById('checkoutMainContainer');
+    const emptyNotice = document.getElementById('checkoutEmptyCartNotice');
+    const itemsList = document.getElementById('checkoutItemsList');
+    const subtotalEl = document.getElementById('checkoutSubtotal');
+    const totalEl = document.getElementById('checkoutTotal');
+    const form = document.getElementById('checkoutForm');
+    const submitBtn = document.getElementById('submitOrderBtn');
+    const alertBox = document.getElementById('checkoutAlertBox');
+    const alertMsg = document.getElementById('checkoutAlertMessage');
+
+    const nameInput = document.getElementById('studentName');
+    const idInput = document.getElementById('studentId');
+    const phoneInput = document.getElementById('studentPhone');
+    const slotSelect = document.getElementById('pickupSlot');
+
+    const nameFeedback = document.getElementById('nameFeedback');
+    const idFeedback = document.getElementById('idFeedback');
+    const phoneFeedback = document.getElementById('phoneFeedback');
+    const slotFeedback = document.getElementById('slotFeedback');
+
+    let isSubmitting = false;
+
+    // Load Cart from localStorage
+    const cart = getCart();
+    const { count, subtotal, total } = getCartTotals();
+
+    if (!cart || cart.length === 0) {
+        mainContainer.classList.add('d-none');
+        emptyNotice.classList.remove('d-none');
+        return;
+    }
+
+    // Render Order Items Sidebar
+    itemsList.innerHTML = cart.map(item => `
+        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+            <div>
+                <span class="fw-bold text-dark d-block">${escapeHtml(item.name)}</span>
+                <small class="text-muted">₹${escapeHtml(item.price)} &times; ${escapeHtml(item.quantity)}</small>
+            </div>
+            <span class="fw-bold text-dark">₹${escapeHtml(item.price * item.quantity)}</span>
+        </div>
+    `).join('');
+
+    subtotalEl.textContent = `₹${subtotal}`;
+    totalEl.textContent = `₹${total}`;
+
+    /**
+     * Clean and validate Indian 10-digit phone number.
+     * Handles +91, 91, leading 0, spaces, dashes.
+     */
+    function sanitizeIndianPhone(val) {
+        if (!val) return null;
+        let clean = val.trim().replace(/[\s\-\(\)\+]/g, '');
+        if (clean.startsWith('91') && clean.length === 12) {
+            clean = clean.substring(2);
+        } else if (clean.startsWith('0') && clean.length === 11) {
+            clean = clean.substring(1);
+        }
+        return /^[6-9]\d{9}$/.test(clean) ? clean : null;
+    }
+
+    function hideErrors() {
+        alertBox.classList.add('d-none');
+        nameFeedback.classList.add('d-none');
+        idFeedback.classList.add('d-none');
+        phoneFeedback.classList.add('d-none');
+        slotFeedback.classList.add('d-none');
+        nameInput.classList.remove('is-invalid');
+        idInput.classList.remove('is-invalid');
+        phoneInput.classList.remove('is-invalid');
+        slotSelect.classList.remove('is-invalid');
+    }
+
+    // Clear field-specific invalid styles on input
+    nameInput.addEventListener('input', () => {
+        nameInput.classList.remove('is-invalid');
+        nameFeedback.classList.add('d-none');
+    });
+    idInput.addEventListener('input', () => {
+        idInput.classList.remove('is-invalid');
+        idFeedback.classList.add('d-none');
+    });
+    phoneInput.addEventListener('input', () => {
+        phoneInput.classList.remove('is-invalid');
+        phoneFeedback.classList.add('d-none');
+    });
+    slotSelect.addEventListener('change', () => {
+        slotSelect.classList.remove('is-invalid');
+        slotFeedback.classList.add('d-none');
+    });
+
+    // Form submission handler
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (isSubmitting) return;
+
+        hideErrors();
+
+        let hasError = false;
+        const nameVal = nameInput.value.trim();
+        const idVal = idInput.value.trim();
+        const phoneVal = phoneInput.value.trim();
+        const slotVal = slotSelect.value;
+        const cleanPhone = sanitizeIndianPhone(phoneVal);
+
+        // Validation Checks
+        if (!nameVal || nameVal.length < 2) {
+            nameInput.classList.add('is-invalid');
+            nameFeedback.classList.remove('d-none');
+            hasError = true;
+        }
+
+        if (!idVal || idVal.length < 3) {
+            idInput.classList.add('is-invalid');
+            idFeedback.classList.remove('d-none');
+            hasError = true;
+        }
+
+        if (!cleanPhone) {
+            phoneInput.classList.add('is-invalid');
+            phoneFeedback.classList.remove('d-none');
+            hasError = true;
+        }
+
+        if (!slotVal) {
+            slotSelect.classList.add('is-invalid');
+            slotFeedback.classList.remove('d-none');
+            hasError = true;
+        }
+
+        const currentCart = getCart();
+        if (!currentCart || currentCart.length === 0) {
+            alertBox.classList.remove('d-none');
+            alertMsg.textContent = 'Your food tray is empty! Please select food items before checking out.';
+            hasError = true;
+        }
+
+        if (hasError) {
+            alertBox.classList.remove('d-none');
+            alertMsg.textContent = 'Please correct the highlighted fields before submitting.';
+            alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
+        // Prevent duplicate submissions
+        isSubmitting = true;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Confirming Order & Generating Token...
+        `;
+
+        try {
+            const paymentMethod = document.querySelector('input[name="paymentOption"]:checked') ? 
+                                  document.querySelector('input[name="paymentOption"]:checked').value : 
+                                  'Pay at Canteen Counter / UPI';
+
+            const payload = {
+                student_name: nameVal,
+                student_id: idVal,
+                phone: cleanPhone,
+                pickup_slot: slotVal,
+                payment_method: paymentMethod,
+                items: currentCart
+            };
+
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Server error occurred while confirming order.');
+            }
+
+            // ORDER CONFIRMED SUCCESSFULLY
+            // 1. Clear cart only upon successful submission
+            clearCart();
+
+            // 2. Persist order data to sessionStorage for instant rendering
+            sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(result.order));
+
+            // 3. Redirect to order confirmation page with order_id in query parameter
+            const orderId = result.order.order_id;
+            window.location.href = `{{ url_for('order_confirmation') }}?order_id=${encodeURIComponent(orderId)}`;
+
+        } catch (err) {
+            console.error('Checkout error:', err);
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="bi bi-check2-circle me-2"></i> Confirm & Generate Pickup Token`;
+
+            alertBox.classList.remove('d-none');
+            alertMsg.textContent = err.message || 'An unexpected error occurred. Please try again.';
+            alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+});
+</script>
+{% endblock %}

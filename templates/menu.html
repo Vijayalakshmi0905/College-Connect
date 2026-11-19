@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Food Menu - College Connect{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <!-- Header Banner -->
+    <div class="text-center py-4 mb-3">
+        <span class="badge px-3 py-2 rounded-pill mb-2" style="background-color: var(--emerald-soft); color: var(--emerald-dark); font-weight: 600;">
+            <i class="bi bi-fire me-1 text-danger"></i> Fresh Campus Kitchen Specials
+        </span>
+        <h1 class="fw-bold text-dark mb-1">Canteen Menu</h1>
+        <p class="text-secondary mb-0">Select your favorite meals, customize order quantities, and skip the counter queue.</p>
+    </div>
+
+    <!-- Filter and Search Bar -->
+    <div class="card p-3 p-md-4 mb-4 border-0 shadow-sm" style="background-color: #ffffff; border-radius: 1rem;">
+        <div class="row g-3 align-items-center">
+            <!-- Search Input -->
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text" id="foodSearchInput" class="form-control border-start-0 ps-0" placeholder="Search dishes (e.g., Dosa, Biryani, Chai)..." aria-label="Search dishes">
+                </div>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="col-md-7">
+                <div class="filter-container d-flex gap-2 justify-content-md-end">
+                    {% for cat in categories %}
+                    <button type="button" class="btn btn-filter {% if loop.first %}active{% endif %}" data-category="{{ cat }}">
+                        {% if cat == 'All' %}<i class="bi bi-grid-3x3-gap-fill me-1"></i>{% endif %}
+                        {% if cat == 'Breakfast' %}<i class="bi bi-egg-fried me-1"></i>{% endif %}
+                        {% if cat == 'Lunch' %}<i class="bi bi-basket2-fill me-1"></i>{% endif %}
+                        {% if cat == 'Snacks' %}<i class="bi bi-cup-straw me-1"></i>{% endif %}
+                        {% if cat == 'Beverages' %}<i class="bi bi-cup-hot-fill me-1"></i>{% endif %}
+                        {{ cat }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Food Items Grid (16 Items) -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4" id="foodGrid">
+        {% for item in items %}
+        <div class="col food-item-wrapper" 
+             data-name="{{ item.name|lower }}" 
+             data-category="{{ item.category }}" 
+             data-price="{{ item.price }}">
+            <div class="card food-card h-100 shadow-sm">
+                <!-- Food Image & Badges -->
+                <div class="food-img-wrapper">
+                    <img src="{{ item.image }}" 
+                         alt="{{ item.name }}" 
+                         class="food-img" 
+                         loading="lazy" 
+                         onerror="this.onerror=null; this.src='https://placehold.co/400x250/064e3b/ffffff?text={{ item.name|urlencode }}';">
+                    <span class="category-tag">{{ item.category }}</span>
+                    {% if item.available %}
+                        <span class="badge bg-success availability-badge">
+                            <i class="bi bi-check-circle-fill me-1"></i>Available
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger availability-badge">
+                            <i class="bi bi-x-circle-fill me-1"></i>Sold Out
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Food Card Content -->
+                <div class="card-body d-flex flex-column p-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="{{ 'veg-indicator' if item.is_veg else 'non-veg-indicator' }}" title="{{ 'Vegetarian' if item.is_veg else 'Non-vegetarian' }}" aria-label="{{ 'Vegetarian' if item.is_veg else 'Non-vegetarian' }}">
+                            <span class="{{ 'veg-dot' if item.is_veg else 'non-veg-dot' }}"></span>
+                        </span>
+                        <h6 class="card-title fw-bold mb-0 text-dark">{{ item.name }}</h6>
+                    </div>
+                    
+                    <p class="card-text text-secondary small flex-grow-1 mb-3" style="line-height: 1.4;">
+                        {{ item.description }}
+                    </p>
+
+                    <!-- Price & Action Button -->
+                    <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                        <div>
+                            <span class="text-muted small d-block">Price</span>
+                            <span class="price-display">₹{{ item.price }}</span>
+                        </div>
+                        <button type="button" 
+                                class="btn btn-emerald btn-sm px-3 py-2 add-to-cart-btn"
+                                data-id="{{ item.id }}"
+                                data-name="{{ item.name }}"
+                                data-price="{{ item.price }}"
+                                data-category="{{ item.category }}"
+                                data-image="{{ item.image }}"
+                                {% if not item.available %}disabled{% endif %}>
+                            <i class="bi bi-cart-plus me-1"></i> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Empty State for Search Filter -->
+    <div id="noResultsAlert" class="text-center py-5 d-none">
+        <i class="bi bi-search display-3 text-muted mb-3 d-block"></i>
+        <h4 class="fw-bold text-dark">No dishes match your search</h4>
+        <p class="text-secondary">Try searching with a different keyword or switch categories above.</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="resetFilterBtn">
+            Reset Filters
+        </button>
+    </div>
+
+    <!-- Sticky Floating View Cart Button for Mobile -->
+    <div class="d-md-none position-fixed bottom-0 start-0 w-100 p-3 bg-white border-top shadow-lg" style="z-index: 1000;">
+        <a href="{{ url_for('cart') }}" class="btn btn-emerald w-100 py-2 d-flex justify-content-between align-items-center px-3">
+            <span><i class="bi bi-bag-check me-2"></i>View Cart</span>
+            <span class="badge bg-warning text-dark rounded-pill cart-count-badge d-none">0</span>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('foodSearchInput');
+    const filterButtons = document.querySelectorAll('.btn-filter');
+    const foodItems = document.querySelectorAll('.food-item-wrapper');
+    const noResults = document.getElementById('noResultsAlert');
+    const resetBtn = document.getElementById('resetFilterBtn');
+
+    let currentCategory = 'All';
+    let currentQuery = '';
+
+    function filterItems() {
+        let visibleCount = 0;
+        foodItems.forEach(item => {
+            const name = item.getAttribute('data-name');
+            const category = item.getAttribute('data-category');
+
+            const matchesCategory = (currentCategory === 'All') || (category.toLowerCase() === currentCategory.toLowerCase());
+            const matchesQuery = !currentQuery || name.includes(currentQuery.toLowerCase());
+
+            if (matchesCategory && matchesQuery) {
+                item.classList.remove('d-none');
+                visibleCount++;
+            } else {
+                item.classList.add('d-none');
+            }
+        });
+
+        if (visibleCount === 0) {
+            noResults.classList.remove('d-none');
+        } else {
+            noResults.classList.add('d-none');
+        }
+    }
+
+    // Category click listener
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCategory = btn.getAttribute('data-category');
+            filterItems();
+        });
+    });
+
+    // Search input listener
+    searchInput.addEventListener('input', (e) => {
+        currentQuery = e.target.value.trim();
+        filterItems();
+    });
+
+    // Reset button
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            currentQuery = '';
+            filterButtons.forEach(b => b.classList.remove('active'));
+            document.querySelector('.btn-filter[data-category="All"]').classList.add('active');
+            currentCategory = 'All';
+            filterItems();
+        });
+    }
+
+    // Add to Cart button click handler
+    document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const item = {
+                id: parseInt(button.getAttribute('data-id')),
+                name: button.getAttribute('data-name'),
+                price: parseFloat(button.getAttribute('data-price')),
+                category: button.getAttribute('data-category'),
+                image: button.getAttribute('data-image')
+            };
+            addToCart(item, 1);
+        });
+    });
+});
+</script>
+{% endblock %}

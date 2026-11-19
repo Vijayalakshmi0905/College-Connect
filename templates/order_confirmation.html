@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmed & Live Tracking - College Connect{% endblock %}
+
+{% block content %}
+<div class="container pb-5">
+    <!-- Success Banner -->
+    <div class="text-center py-4">
+        <div class="d-inline-flex align-items-center justify-content-center mb-3" style="width: 76px; height: 76px; border-radius: 50%; background-color: var(--emerald-soft); color: var(--emerald-primary);">
+            <i class="bi bi-check-lg display-4 fw-bold"></i>
+        </div>
+        <h2 class="fw-bold text-dark mb-1">Order Confirmed & Kitchen Queued!</h2>
+        <p class="text-secondary mb-0">Follow your real-time preparation status below. Your token will be called at the pickup counter.</p>
+    </div>
+
+    <!-- Fallback if accessed without order data -->
+    <div id="noOrderFound" class="d-none text-center py-5">
+        <div class="p-5 mx-auto bg-white rounded-4 shadow-sm" style="max-width: 480px; border: 1px dashed var(--cream-border);">
+            <i class="bi bi-receipt-cutoff display-3 text-muted mb-3 d-block"></i>
+            <h5 class="fw-bold text-dark mb-2">No Active Order Found</h5>
+            <p class="text-secondary small mb-4">Please explore our menu and place a fresh order to view the confirmation ticket.</p>
+            <a href="{{ url_for('menu') }}" class="btn btn-emerald px-4 py-2">
+                <i class="bi bi-grid me-1"></i> Browse Food Menu
+            </a>
+        </div>
+    </div>
+
+    <!-- Order Confirmation Ticket Container -->
+    <div id="confirmationTicketContainer" class="mx-auto" style="max-width: 680px;">
+        <!-- 5. Student Live Order Tracking Stepper Card -->
+        <div class="card p-4 mb-4 border-0 shadow-sm bg-white rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0 d-flex align-items-center">
+                    <i class="bi bi-broadcast text-danger me-2"></i> Live Order Tracking
+                </h6>
+                <span class="badge bg-light text-secondary border px-3 py-1 rounded-pill small">
+                    <span class="status-indicator-dot healthy me-1" style="width: 8px; height: 8px;"></span> Live Sync (5s)
+                </span>
+            </div>
+
+            <!-- Stepper Indicators -->
+            <div class="row g-2 text-center py-2" id="orderStatusStepper">
+                <!-- Step 1: Confirmed -->
+                <div class="col-3 step-col active-step" id="step-col-confirmed">
+                    <div class="step-indicator-bubble active" id="bubble-confirmed">1</div>
+                    <div class="step-title small mt-2">Order Confirmed</div>
+                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Queued in system</small>
+                </div>
+
+                <!-- Step 2: Preparing -->
+                <div class="col-3 step-col" id="step-col-preparing">
+                    <div class="step-indicator-bubble" id="bubble-preparing">2</div>
+                    <div class="step-title small mt-2">Preparing Food</div>
+                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Cooking in kitchen</small>
+                </div>
+
+                <!-- Step 3: Ready for Pickup -->
+                <div class="col-3 step-col" id="step-col-ready">
+                    <div class="step-indicator-bubble" id="bubble-ready">3</div>
+                    <div class="step-title small mt-2">Ready for Pickup</div>
+                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Call token at counter</small>
+                </div>
+
+                <!-- Step 4: Completed -->
+                <div class="col-3 step-col" id="step-col-completed">
+                    <div class="step-indicator-bubble" id="bubble-completed">4</div>
+                    <div class="step-title small mt-2">Order Completed</div>
+                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Picked up</small>
+                </div>
+            </div>
+
+            <!-- Dynamic Live Alert Banner -->
+            <div id="statusNotificationBanner" class="alert alert-info border-0 mt-3 mb-0 text-center py-2 small fw-semibold">
+                <i class="bi bi-clock-history me-1"></i> Your order has been confirmed by the canteen system.
+            </div>
+        </div>
+
+        <!-- Token Ticket -->
+        <div class="token-ticket p-4 p-md-5 mb-4">
+            <!-- Ticket Header & Token Display -->
+            <div class="text-center pb-4 border-bottom border-secondary-subtle">
+                <!-- Prominent Order Status: CONFIRMED -->
+                <div class="mb-3">
+                    <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm" id="ticketStatusBadge">
+                        <i class="bi bi-clock-history me-1"></i> Order Status: CONFIRMED
+                    </span>
+                </div>
+
+                <!-- Pickup Token in Large, Visible Text -->
+                <div class="d-block my-3">
+                    <div class="token-circle mx-auto">
+                        <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9;">PICKUP TOKEN</span>
+                        <span class="token-number fs-1 fw-bolder" id="ticketTokenNumber">{% if order %}{{ order.token_number }}{% else %}--{% endif %}</span>
+                    </div>
+                </div>
+
+                <h4 class="fw-bold text-dark mb-1" id="ticketOrderNumber">
+                    {% if order %}Order #{{ order.order_id }}{% else %}Order #--{% endif %}
+                </h4>
+                <p class="text-muted small mb-0" id="ticketPlacedTime">
+                    {% if order %}Placed on {{ order.created_at }}{% else %}Placed on --{% endif %}
+                </p>
+            </div>
+
+            <!-- Student & Pickup Meta -->
+            <div class="row g-3 py-3 border-bottom border-secondary-subtle text-start">
+                <div class="col-sm-6">
+                    <small class="text-muted d-block">Student Name</small>
+                    <span class="fw-bold text-dark fs-6" id="ticketStudentName">
+                        {% if order %}{{ order.student_name }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="col-sm-6">
+                    <small class="text-muted d-block">Student ID / Roll No.</small>
+                    <span class="fw-bold text-dark fs-6" id="ticketStudentId">
+                        {% if order %}{{ order.student_id }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="col-sm-6">
+                    <small class="text-muted d-block">Contact Phone</small>
+                    <span class="fw-bold text-dark" id="ticketStudentPhone">
+                        {% if order %}{{ order.phone }}{% else %}--{% endif %}
+                    </span>
+                </div>
+                <div class="col-sm-6">
+                    <small class="text-muted d-block">Scheduled Pickup Window</small>
+                    <span class="fw-bold text-success fs-6" id="ticketPickupSlot">
+                        {% if order %}{{ order.pickup_slot }}{% else %}--{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Itemized Order Table -->
+            <div class="py-3 border-bottom border-secondary-subtle">
+                <h6 class="fw-bold text-dark mb-3">
+                    <i class="bi bi-basket2 text-success me-1"></i> Ordered Food Items
+                </h6>
+                <div id="ticketItemsList">
+                    {% if order and order['items'] %}
+                        {% for item in order['items'] %}
+                        <div class="d-flex justify-content-between align-items-center py-1">
+                            <span class="text-dark">
+                                <strong class="text-success">{{ item.quantity }}&times;</strong> {{ item.name }}
+                            </span>
+                            <span class="fw-semibold text-secondary">₹{{ item.price * item.quantity }}</span>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Total Calculation -->
+            <div class="pt-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Subtotal</span>
+                    <span class="fw-semibold text-dark" id="ticketSubtotal">
+                        {% if order %}₹{{ order.subtotal }}{% else %}₹0{% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary">Payment Mode</span>
+                    <span class="fw-semibold text-dark" id="ticketPaymentMethod">
+                        {% if order %}{{ order.payment_method }}{% else %}Pay at Counter (UPI / Cash){% endif %}
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                    <div>
+                        <span class="fw-bold text-dark fs-5 d-block">Total Amount</span>
+                        <small class="text-muted">Pay at canteen pickup counter</small>
+                    </div>
+                    <span class="fw-bold fs-2" style="color: var(--emerald-deep);" id="ticketTotalAmount">
+                        {% if order %}₹{{ order.total_amount }}{% else %}₹0{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons (No Print) -->
+        <div class="d-flex flex-wrap gap-3 justify-content-center btn-no-print">
+            <button type="button" class="btn btn-emerald px-4 py-2" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i> Print / Save Token
+            </button>
+            <a href="{{ url_for('menu') }}" class="btn btn-outline-secondary px-4 py-2">
+                <i class="bi bi-arrow-repeat me-2"></i> Order More Food
+            </a>
+            <a href="{{ url_for('home') }}" class="btn btn-cream-outline text-dark border px-4 py-2">
+                <i class="bi bi-house me-2"></i> Return Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const ticketContainer = document.getElementById('confirmationTicketContainer');
+    const noOrderFound = document.getElementById('noOrderFound');
+    const ticketStatusBadge = document.getElementById('ticketStatusBadge');
+    const notificationBanner = document.getElementById('statusNotificationBanner');
+
+    // Stepper bubble elements
+    const bubbleConfirmed = document.getElementById('bubble-confirmed');
+    const bubblePreparing = document.getElementById('bubble-preparing');
+    const bubbleReady = document.getElementById('bubble-ready');
+    const bubbleCompleted = document.getElementById('bubble-completed');
+
+    const colConfirmed = document.getElementById('step-col-confirmed');
+    const colPreparing = document.getElementById('step-col-preparing');
+    const colReady = document.getElementById('step-col-ready');
+    const colCompleted = document.getElementById('step-col-completed');
+
+    let currentOrderId = null;
+    let pollInterval = null;
+
+    // Check if order was populated by Jinja
+    {% if order %}
+        currentOrderId = "{{ order.order_id }}";
+        updateTrackingUI("{{ order.status }}", "{{ order.token_number }}");
+    {% endif %}
+
+    // 1. Try reading from sessionStorage if not rendered by Jinja
+    let orderData = null;
+    try {
+        const stored = sessionStorage.getItem(LAST_ORDER_KEY);
+        if (stored) {
+            orderData = JSON.parse(stored);
+            if (!currentOrderId && orderData.order_id) {
+                currentOrderId = orderData.order_id;
+            }
+        }
+    } catch (e) {
+        console.error('Error reading order from sessionStorage:', e);
+    }
+
+    // 2. Check URL query param order_id
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramOrderId = urlParams.get('order_id');
+    if (paramOrderId) {
+        currentOrderId = paramOrderId;
+    }
+
+    // If order was not rendered by server, populate from orderData or API
+    if (!{% if order %}true{% else %}false{% endif %}) {
+        if (orderData) {
+            populateTicketFields(orderData);
+            updateTrackingUI(orderData.status || 'CONFIRMED', orderData.token_number || orderData.tokenNumber);
+        } else if (currentOrderId) {
+            await fetchAndRenderOrder(currentOrderId);
+        } else {
+            ticketContainer.classList.add('d-none');
+            noOrderFound.classList.remove('d-none');
+            return;
+        }
+    }
+
+    /**
+     * Populate ticket details in DOM
+     */
+    function populateTicketFields(order) {
+        document.getElementById('ticketTokenNumber').textContent = order.token_number || order.tokenNumber || '--';
+        document.getElementById('ticketOrderNumber').textContent = `Order #${order.order_id || order.orderNumber || '--'}`;
+        document.getElementById('ticketPlacedTime').textContent = `Placed on ${order.created_at || order.placedAt || 'Just now'}`;
+
+        const student = order.student || {};
+        document.getElementById('ticketStudentName').textContent = order.student_name || student.name || '--';
+        document.getElementById('ticketStudentId').textContent = order.student_id || student.id || '--';
+
+        const phoneVal = order.phone || student.phone || '--';
+        document.getElementById('ticketStudentPhone').textContent = phoneVal.startsWith('+91') ? phoneVal : `+91 ${phoneVal}`;
+        document.getElementById('ticketPickupSlot').textContent = order.pickup_slot || order.pickupSlot || '--';
+        document.getElementById('ticketSubtotal').textContent = `₹${order.subtotal || order.total_amount || order.total || 0}`;
+        document.getElementById('ticketPaymentMethod').textContent = order.payment_method || order.paymentMethod || 'Pay at Counter';
+        document.getElementById('ticketTotalAmount').textContent = `₹${order.total_amount || order.total || 0}`;
+
+        const items = order.items || order.ordered_items || [];
+        const itemsContainer = document.getElementById('ticketItemsList');
+        itemsContainer.innerHTML = items.map(item => `
+            <div class="d-flex justify-content-between align-items-center py-1">
+                <span class="text-dark">
+                    <strong class="text-success">${escapeHtml(item.quantity)}&times;</strong> ${escapeHtml(item.name)}
+                </span>
+                <span class="fw-semibold text-secondary">₹${escapeHtml(item.price * item.quantity)}</span>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Update 4-step stepper and status badges
+     */
+    function updateTrackingUI(status, tokenNumber) {
+        // Reset bubbles
+        [bubbleConfirmed, bubblePreparing, bubbleReady, bubbleCompleted].forEach(b => {
+            b.className = 'step-indicator-bubble';
+        });
+        [colConfirmed, colPreparing, colReady, colCompleted].forEach(c => {
+            c.classList.remove('active-step');
+        });
+
+        if (status === 'CONFIRMED') {
+            bubbleConfirmed.className = 'step-indicator-bubble active';
+            colConfirmed.classList.add('active-step');
+            ticketStatusBadge.className = 'badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm';
+            ticketStatusBadge.innerHTML = '<i class="bi bi-clock-history me-1"></i> Order Status: CONFIRMED';
+            notificationBanner.className = 'alert alert-primary border-0 mt-3 mb-0 text-center py-2 small fw-semibold';
+            notificationBanner.innerHTML = '<i class="bi bi-clock-history me-1"></i> Order Confirmed! Waiting for canteen staff to start preparation.';
+        } else if (status === 'PREPARING') {
+            bubbleConfirmed.className = 'step-indicator-bubble completed';
+            bubblePreparing.className = 'step-indicator-bubble active';
+            colPreparing.classList.add('active-step');
+            ticketStatusBadge.className = 'badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill shadow-sm';
+            ticketStatusBadge.innerHTML = '<i class="bi bi-fire me-1"></i> Order Status: PREPARING';
+            notificationBanner.className = 'alert alert-warning border-0 mt-3 mb-0 text-center py-2 small fw-semibold';
+            notificationBanner.innerHTML = '<i class="bi bi-fire me-1"></i> Canteen kitchen is currently preparing your meal.';
+        } else if (status === 'READY FOR PICKUP') {
+            bubbleConfirmed.className = 'step-indicator-bubble completed';
+            bubblePreparing.className = 'step-indicator-bubble completed';
+            bubbleReady.className = 'step-indicator-bubble active';
+            colReady.classList.add('active-step');
+            ticketStatusBadge.className = 'badge bg-success fs-6 px-3 py-2 rounded-pill shadow-sm';
+            ticketStatusBadge.innerHTML = '<i class="bi bi-bell-fill me-1"></i> Order Status: READY FOR PICKUP';
+            notificationBanner.className = 'alert alert-success border-0 mt-3 mb-0 text-center py-2 small fw-bold';
+            notificationBanner.innerHTML = `<i class="bi bi-bell-fill me-1"></i> YOUR FOOD IS READY! Head to the counter and show Token <strong>${escapeHtml(tokenNumber || '')}</strong>.`;
+        } else if (status === 'COMPLETED') {
+            bubbleConfirmed.className = 'step-indicator-bubble completed';
+            bubblePreparing.className = 'step-indicator-bubble completed';
+            bubbleReady.className = 'step-indicator-bubble completed';
+            bubbleCompleted.className = 'step-indicator-bubble completed';
+            colCompleted.classList.add('active-step');
+            ticketStatusBadge.className = 'badge bg-secondary fs-6 px-3 py-2 rounded-pill shadow-sm';
+            ticketStatusBadge.innerHTML = '<i class="bi bi-check2-all me-1"></i> Order Status: COMPLETED';
+            notificationBanner.className = 'alert alert-secondary border-0 mt-3 mb-0 text-center py-2 small fw-semibold';
+            notificationBanner.innerHTML = '<i class="bi bi-check2-all me-1"></i> Order Completed. Enjoy your meal!';
+        }
+    }
+
+    /**
+     * Fetch order from backend and render
+     */
+    async function fetchAndRenderOrder(orderId) {
+        try {
+            const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.order) {
+                    populateTicketFields(data.order);
+                    updateTrackingUI(data.order.status, data.order.token_number);
+                    return data.order;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching order:', err);
+        }
+        return null;
+    }
+
+    /**
+     * Live Polling: Check order status every 5 seconds
+     */
+    if (currentOrderId) {
+        pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/orders/${encodeURIComponent(currentOrderId)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.order) {
+                        updateTrackingUI(data.order.status, data.order.token_number);
+                        if (data.order.status === 'COMPLETED') {
+                            clearInterval(pollInterval);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}
