@@ -1,18 +1,27 @@
-"""
-Integration and Unit Tests for College Connect Checkout Workflow
-Tests:
-1. Validation of mobile numbers, student details, and cart items
-2. Order submission and calculation
-3. Unique token and order ID generation
-4. Order confirmation page rendering and token visibility
-"""
+"""Student registration, login, and authenticated-profile checkout workflow."""
+
+import re
 
 from app import app
-from models import FoodItem
-from test_support import login, post_json
+from models import FoodItem, Order, Student, User
+from test_support import login, logout, post_form, post_json
 
 client = app.test_client()
-assert login(client, 'student@collegeconnect.com', 'Student@123', 'STUDENT').status_code == 200
+registration = post_form(client, '/register', {
+    'full_name': 'Checkout Test Student',
+    'student_id': 'FLOW-2026-900',
+    'email': 'checkout-flow-900@collegeconnect.com',
+    'phone': '9876543210',
+    'department': 'Computer Science',
+    'year_of_study': '3rd Year',
+    'password': 'Checkout@123',
+    'confirm_password': 'Checkout@123'
+})
+assert registration.status_code == 200
+assert b'Checkout Test Student' in registration.data
+assert logout(client).status_code == 200
+assert login(client, 'checkout-flow-900@collegeconnect.com', 'Checkout@123', 'STUDENT').status_code == 200
+print('PASS: Student registration and login completed before checkout')
 
 with app.app_context():
     dosa = FoodItem.query.filter_by(name='Masala Dosa').first()
@@ -20,21 +29,17 @@ with app.app_context():
     thali = FoodItem.query.filter_by(name='Paneer Butter Masala Thali').first()
     assert dosa and chai and thali
 
+menu_response = client.get('/menu')
+assert menu_response.status_code == 200
+menu_item_match = re.search(rb'data-id="(\d+)"\s+data-name="Masala Dosa"', menu_response.data)
+assert menu_item_match, 'Masala Dosa was not available to add from the menu.'
+menu_dosa_id = int(menu_item_match.group(1))
+assert menu_dosa_id == dosa.id
+print('PASS: Cart item ID matches the food menu database ID')
+
 print("--- STARTING CHECKOUT WORKFLOW TESTS ---")
 
-# 1. Test Invalid Mobile Numbers
-invalid_phones = [
-    "12345",              # Too short
-    "abcdefghij",         # Letters
-    "5987654321",         # Starts with 5 (invalid in India)
-    "98765432101",        # 11 digits
-    "0000000000",         # All zeros
-    ""                    # Empty
-]
-
 base_payload = {
-    "student_name": "Rohan Verma",
-    "student_id": "CS-2026-101",
     "pickup_slot": "Immediate (15-20 Mins)",
     "payment_method": "Pay at Canteen Counter / UPI",
     "items": [
@@ -42,34 +47,17 @@ base_payload = {
     ]
 }
 
-for bad_phone in invalid_phones:
-    payload = dict(base_payload)
-    payload["phone"] = bad_phone
-    res = post_json(client, '/api/orders', payload)
-    assert res.status_code == 400, f"Expected 400 for phone '{bad_phone}', got {res.status_code}"
-    json_data = res.get_json()
-    assert json_data["success"] is False
-    assert "Indian mobile number" in json_data["error"]
-    print(f"PASS: Rejected invalid phone '{bad_phone}': {json_data['error']}")
-
-# 2. Test Invalid Name, Student ID, and Empty Cart
-res_bad_name = post_json(client, '/api/orders', {**base_payload, "student_name": "A", "phone": "9876543210"})
-assert res_bad_name.status_code == 400
-print(f"PASS: Rejected short name: {res_bad_name.get_json()['error']}")
-
-res_bad_id = post_json(client, '/api/orders', {**base_payload, "student_id": "1", "phone": "9876543210"})
-assert res_bad_id.status_code == 400
-print(f"PASS: Rejected short student ID: {res_bad_id.get_json()['error']}")
-
-res_empty_cart = post_json(client, '/api/orders', {**base_payload, "phone": "9876543210", "items": []})
+# Student identity is not required in the order request; it comes from the login session.
+res_empty_cart = post_json(client, '/api/orders', {**base_payload, "items": []})
 assert res_empty_cart.status_code == 400
 print(f"PASS: Rejected empty items: {res_empty_cart.get_json()['error']}")
 
-# 3. Test Successful Order Submission #1
+# 2. Test successful checkout without personal fields in the request
 valid_payload_1 = {
-    "student_name": "Aarav Sharma",
-    "student_id": "CS2026-084",
-    "phone": "+91 9876543210",
+    # These untrusted client values must never replace the authenticated profile.
+    "student_name": "Different Person",
+    "student_id": "UNRELATED-999",
+    "phone": "0000000000",
     "pickup_slot": "Immediate (15-20 Mins)",
     "payment_method": "Pay at Canteen Counter / UPI",
     "items": [
@@ -94,12 +82,19 @@ assert order1["token_number"].startswith("T-")
 assert order1["status"] == "CONFIRMED"
 assert order1["total_amount"] == (float(dosa.price) * 2 + float(chai.price))
 assert order1["phone"] == "+91 9876543210"
+assert order1["student_name"] == "Checkout Test Student"
+assert order1["student_id"] == "FLOW-2026-900"
+with app.app_context():
+    registered_user = User.query.filter_by(email='checkout-flow-900@collegeconnect.com').one()
+    registered_student = Student.query.filter_by(user_id=registered_user.id).one()
+    saved_order = Order.query.filter_by(order_id=order1['order_id']).one()
+    assert order1['user_id'] == registered_user.id
+    assert saved_order.student_profile_id == registered_student.id
+print("PASS: Order identity was taken from the authenticated student profile")
+print("PASS: Order is linked to the logged-in user and student profile")
 
-# 4. Test Successful Order Submission #2 and Token Uniqueness
+# 3. Test Successful Order Submission #2 and Token Uniqueness
 valid_payload_2 = {
-    "student_name": "Priya Nair",
-    "student_id": "EC2025-042",
-    "phone": "9123456780", # Valid 10-digit without prefix
     "pickup_slot": "12:30 PM - Lunch Slot 1",
     "payment_method": "Pay at Canteen Counter / UPI",
     "items": [
@@ -121,7 +116,7 @@ assert order1["order_id"] != order2["order_id"], "Order IDs must be unique!"
 assert order1["token_number"] != order2["token_number"], "Tokens must be unique among active orders!"
 print("PASS: Order IDs and Tokens are guaranteed unique!")
 
-# 5. Test Confirmation Page Rendering with Order #1
+# 4. Test Confirmation Page Rendering with Order #1
 res_confirm = client.get(f"/order-confirmation?order_id={order1['order_id']}")
 assert res_confirm.status_code == 200
 html_confirm = res_confirm.data.decode('utf-8')
@@ -130,18 +125,23 @@ html_confirm = res_confirm.data.decode('utf-8')
 assert order1['order_id'] in html_confirm, "Order ID missing from confirmation page"
 assert order1['token_number'] in html_confirm, "Pickup token missing from confirmation page"
 assert "CONFIRMED" in html_confirm, "Order status CONFIRMED missing from confirmation page"
-assert "Aarav Sharma" in html_confirm, "Student name missing from confirmation page"
+assert "Checkout Test Student" in html_confirm, "Student name missing from confirmation page"
 assert dosa.name in html_confirm, "Ordered item missing from confirmation page"
 assert chai.name in html_confirm, "Ordered item missing from confirmation page"
 assert str(int(order1['total_amount'])) in html_confirm, "Total amount missing from confirmation page"
 print("\nPASS: Order Confirmation Page contains all required details (Order ID, Token, Status, Items, Student Info, Total)!")
 
-# 6. Test Checkout Page Loads Successfully
+# 5. Test Checkout Page Loads with saved profile details and no editable identity/password fields
 res_checkout = client.get('/checkout')
 assert res_checkout.status_code == 200
 html_checkout = res_checkout.data.decode('utf-8')
-assert 'studentName' in html_checkout
-assert 'studentPhone' in html_checkout
+assert 'Checkout Test Student' in html_checkout
+assert 'FLOW-2026-900' in html_checkout
+assert 'checkout-flow-900@collegeconnect.com' in html_checkout
+assert '+91 9876543210' in html_checkout
+assert 'studentName' not in html_checkout
+assert 'studentPhone' not in html_checkout
+assert 'type="password"' not in html_checkout
 assert 'pickupSlot' in html_checkout
 assert 'Confirm & Generate Pickup Token' in html_checkout
 print("PASS: Checkout page renders correctly!")

@@ -1,7 +1,5 @@
 {% extends "base.html" %}
 
-{% block title %}Student Checkout - College Connect{% endblock %}
-
 {% block content %}
 <div class="container pb-5">
     <div class="py-3 mb-2">
@@ -9,7 +7,7 @@
             <i class="bi bi-arrow-left me-1"></i> Back to Tray
         </a>
         <h2 class="fw-bold text-dark mt-2 mb-1">Student Checkout</h2>
-        <p class="text-secondary small mb-0">Enter your student information and choose your scheduled pickup window.</p>
+        <p class="text-secondary small mb-0">Your saved student details are ready. Choose a pickup window for your order.</p>
     </div>
 
     <!-- Empty Cart Warning (Hidden if cart has items) -->
@@ -40,41 +38,38 @@
                 </div>
 
                 <form id="checkoutForm" novalidate>
-                    <!-- Student Full Name -->
+                    <!-- Read-only details from the authenticated student profile -->
                     <div class="mb-3">
-                        <label for="studentName" class="form-label fw-semibold text-dark">
-                            Full Name <span class="text-danger">*</span>
-                        </label>
+                        <label class="form-label fw-semibold text-dark">Full Name</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-secondary"><i class="bi bi-person"></i></span>
-                            <input type="text" class="form-control" id="studentName" placeholder="e.g., Aarav Sharma" required minlength="2">
+                            <input type="text" class="form-control bg-light" value="{{ student.full_name }}" readonly aria-readonly="true">
                         </div>
-                        <div id="nameFeedback" class="text-danger small mt-1 d-none">Please enter your full name (minimum 2 characters).</div>
                     </div>
 
-                    <!-- Student ID / Roll Number -->
                     <div class="mb-3">
-                        <label for="studentId" class="form-label fw-semibold text-dark">
-                            Student ID / Roll No. <span class="text-danger">*</span>
-                        </label>
+                        <label class="form-label fw-semibold text-dark">Student ID / Roll No.</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-secondary"><i class="bi bi-card-text"></i></span>
-                            <input type="text" class="form-control" id="studentId" placeholder="e.g., CS2026-084 or 2024/BCS/012" required minlength="3">
+                            <input type="text" class="form-control bg-light" value="{{ student.student_id }}" readonly aria-readonly="true">
                         </div>
-                        <div id="idFeedback" class="text-danger small mt-1 d-none">Please provide a valid Student ID or Roll Number (minimum 3 characters).</div>
                     </div>
 
-                    <!-- Phone Number -->
                     <div class="mb-3">
-                        <label for="studentPhone" class="form-label fw-semibold text-dark">
-                            Mobile Phone Number <span class="text-danger">*</span>
-                        </label>
+                        <label class="form-label fw-semibold text-dark">Campus Email</label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light text-secondary fw-semibold"><i class="bi bi-telephone me-1"></i> +91</span>
-                            <input type="tel" class="form-control" id="studentPhone" placeholder="10-digit mobile number (e.g., 9876543210)" maxlength="15" required>
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control bg-light" value="{{ current_user.email }}" readonly aria-readonly="true">
                         </div>
-                        <div id="phoneFeedback" class="text-danger small mt-1 d-none">Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.</div>
-                        <small class="text-muted d-block mt-1">SMS notification and pickup token will be linked to this number.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-dark">Mobile Phone Number</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-secondary"><i class="bi bi-telephone"></i></span>
+                            <input type="tel" class="form-control bg-light" value="{{ student.phone }}" readonly aria-readonly="true">
+                        </div>
+                        <small class="text-muted d-block mt-1">Your pickup token will be linked to this number.</small>
                     </div>
 
                     <!-- Pickup Time Slot -->
@@ -170,14 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const alertBox = document.getElementById('checkoutAlertBox');
     const alertMsg = document.getElementById('checkoutAlertMessage');
 
-    const nameInput = document.getElementById('studentName');
-    const idInput = document.getElementById('studentId');
-    const phoneInput = document.getElementById('studentPhone');
     const slotSelect = document.getElementById('pickupSlot');
 
-    const nameFeedback = document.getElementById('nameFeedback');
-    const idFeedback = document.getElementById('idFeedback');
-    const phoneFeedback = document.getElementById('phoneFeedback');
     const slotFeedback = document.getElementById('slotFeedback');
 
     let isSubmitting = false;
@@ -206,46 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
     subtotalEl.textContent = `₹${subtotal}`;
     totalEl.textContent = `₹${total}`;
 
-    /**
-     * Clean and validate Indian 10-digit phone number.
-     * Handles +91, 91, leading 0, spaces, dashes.
-     */
-    function sanitizeIndianPhone(val) {
-        if (!val) return null;
-        let clean = val.trim().replace(/[\s\-\(\)\+]/g, '');
-        if (clean.startsWith('91') && clean.length === 12) {
-            clean = clean.substring(2);
-        } else if (clean.startsWith('0') && clean.length === 11) {
-            clean = clean.substring(1);
-        }
-        return /^[6-9]\d{9}$/.test(clean) ? clean : null;
-    }
-
     function hideErrors() {
         alertBox.classList.add('d-none');
-        nameFeedback.classList.add('d-none');
-        idFeedback.classList.add('d-none');
-        phoneFeedback.classList.add('d-none');
         slotFeedback.classList.add('d-none');
-        nameInput.classList.remove('is-invalid');
-        idInput.classList.remove('is-invalid');
-        phoneInput.classList.remove('is-invalid');
         slotSelect.classList.remove('is-invalid');
     }
 
-    // Clear field-specific invalid styles on input
-    nameInput.addEventListener('input', () => {
-        nameInput.classList.remove('is-invalid');
-        nameFeedback.classList.add('d-none');
-    });
-    idInput.addEventListener('input', () => {
-        idInput.classList.remove('is-invalid');
-        idFeedback.classList.add('d-none');
-    });
-    phoneInput.addEventListener('input', () => {
-        phoneInput.classList.remove('is-invalid');
-        phoneFeedback.classList.add('d-none');
-    });
     slotSelect.addEventListener('change', () => {
         slotSelect.classList.remove('is-invalid');
         slotFeedback.classList.add('d-none');
@@ -261,31 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         hideErrors();
 
         let hasError = false;
-        const nameVal = nameInput.value.trim();
-        const idVal = idInput.value.trim();
-        const phoneVal = phoneInput.value.trim();
         const slotVal = slotSelect.value;
-        const cleanPhone = sanitizeIndianPhone(phoneVal);
 
         // Validation Checks
-        if (!nameVal || nameVal.length < 2) {
-            nameInput.classList.add('is-invalid');
-            nameFeedback.classList.remove('d-none');
-            hasError = true;
-        }
-
-        if (!idVal || idVal.length < 3) {
-            idInput.classList.add('is-invalid');
-            idFeedback.classList.remove('d-none');
-            hasError = true;
-        }
-
-        if (!cleanPhone) {
-            phoneInput.classList.add('is-invalid');
-            phoneFeedback.classList.remove('d-none');
-            hasError = true;
-        }
-
         if (!slotVal) {
             slotSelect.classList.add('is-invalid');
             slotFeedback.classList.remove('d-none');
@@ -320,9 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                   'Pay at Canteen Counter / UPI';
 
             const payload = {
-                student_name: nameVal,
-                student_id: idVal,
-                phone: cleanPhone,
                 pickup_slot: slotVal,
                 payment_method: paymentMethod,
                 items: currentCart

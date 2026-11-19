@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Order Confirmed & Live Tracking - College Connect{% endblock %}
-
 {% block content %}
 <div class="container pb-5">
     <!-- Success Banner -->
-    <div class="text-center py-4">
+    <div class="confirmation-success-banner text-center py-4">
         <div class="d-inline-flex align-items-center justify-content-center mb-3" style="width: 76px; height: 76px; border-radius: 50%; background-color: var(--emerald-soft); color: var(--emerald-primary);">
             <i class="bi bi-check-lg display-4 fw-bold"></i>
         </div>
@@ -28,7 +26,7 @@
     <!-- Order Confirmation Ticket Container -->
     <div id="confirmationTicketContainer" class="mx-auto" style="max-width: 680px;">
         <!-- 5. Student Live Order Tracking Stepper Card -->
-        <div class="card p-4 mb-4 border-0 shadow-sm bg-white rounded-4">
+        <div class="card p-4 mb-4 border-0 shadow-sm bg-white rounded-4 live-tracking-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="fw-bold text-dark mb-0 d-flex align-items-center">
                     <i class="bi bi-broadcast text-danger me-2"></i> Live Order Tracking
@@ -40,33 +38,34 @@
 
             <!-- Stepper Indicators -->
             <div class="row g-2 text-center py-2" id="orderStatusStepper">
-                <!-- Step 1: Confirmed -->
+                <!-- Step 1: Placed -->
+                <div class="col-3 step-col" id="step-col-placed">
+                    <div class="step-indicator-bubble" id="bubble-placed">1</div>
+                    <div class="step-title small mt-2">Placed</div>
+                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Order received</small>
+                </div>
+
+                <!-- Step 2: Confirmed -->
                 <div class="col-3 step-col active-step" id="step-col-confirmed">
-                    <div class="step-indicator-bubble active" id="bubble-confirmed">1</div>
-                    <div class="step-title small mt-2">Order Confirmed</div>
+                    <div class="step-indicator-bubble active" id="bubble-confirmed">2</div>
+                    <div class="step-title small mt-2">Confirmed</div>
                     <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Queued in system</small>
                 </div>
 
-                <!-- Step 2: Preparing -->
+                <!-- Step 3: Preparing -->
                 <div class="col-3 step-col" id="step-col-preparing">
-                    <div class="step-indicator-bubble" id="bubble-preparing">2</div>
-                    <div class="step-title small mt-2">Preparing Food</div>
+                    <div class="step-indicator-bubble" id="bubble-preparing">3</div>
+                    <div class="step-title small mt-2">Preparing</div>
                     <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Cooking in kitchen</small>
                 </div>
 
-                <!-- Step 3: Ready for Pickup -->
+                <!-- Step 4: Ready for Pickup -->
                 <div class="col-3 step-col" id="step-col-ready">
-                    <div class="step-indicator-bubble" id="bubble-ready">3</div>
+                    <div class="step-indicator-bubble" id="bubble-ready">4</div>
                     <div class="step-title small mt-2">Ready for Pickup</div>
                     <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Call token at counter</small>
                 </div>
 
-                <!-- Step 4: Completed -->
-                <div class="col-3 step-col" id="step-col-completed">
-                    <div class="step-indicator-bubble" id="bubble-completed">4</div>
-                    <div class="step-title small mt-2">Order Completed</div>
-                    <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Picked up</small>
-                </div>
             </div>
 
             <!-- Dynamic Live Alert Banner -->
@@ -76,7 +75,7 @@
         </div>
 
         <!-- Token Ticket -->
-        <div class="token-ticket p-4 p-md-5 mb-4">
+        <div class="token-ticket p-4 p-md-5 mb-4" id="printableOrderTicket">
             <!-- Ticket Header & Token Display -->
             <div class="text-center pb-4 border-bottom border-secondary-subtle">
                 <!-- Prominent Order Status: CONFIRMED -->
@@ -200,15 +199,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const notificationBanner = document.getElementById('statusNotificationBanner');
 
     // Stepper bubble elements
+    const bubblePlaced = document.getElementById('bubble-placed');
     const bubbleConfirmed = document.getElementById('bubble-confirmed');
     const bubblePreparing = document.getElementById('bubble-preparing');
     const bubbleReady = document.getElementById('bubble-ready');
-    const bubbleCompleted = document.getElementById('bubble-completed');
 
+    const colPlaced = document.getElementById('step-col-placed');
     const colConfirmed = document.getElementById('step-col-confirmed');
     const colPreparing = document.getElementById('step-col-preparing');
     const colReady = document.getElementById('step-col-ready');
-    const colCompleted = document.getElementById('step-col-completed');
 
     let currentOrderId = null;
     let pollInterval = null;
@@ -286,18 +285,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     /**
-     * Update 4-step stepper and status badges
+     * Update customer-facing progress steps and status badges
      */
     function updateTrackingUI(status, tokenNumber) {
         // Reset bubbles
-        [bubbleConfirmed, bubblePreparing, bubbleReady, bubbleCompleted].forEach(b => {
+        [bubblePlaced, bubbleConfirmed, bubblePreparing, bubbleReady].forEach(b => {
             b.className = 'step-indicator-bubble';
         });
-        [colConfirmed, colPreparing, colReady, colCompleted].forEach(c => {
+        [colPlaced, colConfirmed, colPreparing, colReady].forEach(c => {
             c.classList.remove('active-step');
         });
 
         if (status === 'CONFIRMED') {
+            bubblePlaced.className = 'step-indicator-bubble completed';
             bubbleConfirmed.className = 'step-indicator-bubble active';
             colConfirmed.classList.add('active-step');
             ticketStatusBadge.className = 'badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm';
@@ -305,6 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             notificationBanner.className = 'alert alert-primary border-0 mt-3 mb-0 text-center py-2 small fw-semibold';
             notificationBanner.innerHTML = '<i class="bi bi-clock-history me-1"></i> Order Confirmed! Waiting for canteen staff to start preparation.';
         } else if (status === 'PREPARING') {
+            bubblePlaced.className = 'step-indicator-bubble completed';
             bubbleConfirmed.className = 'step-indicator-bubble completed';
             bubblePreparing.className = 'step-indicator-bubble active';
             colPreparing.classList.add('active-step');
@@ -313,6 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             notificationBanner.className = 'alert alert-warning border-0 mt-3 mb-0 text-center py-2 small fw-semibold';
             notificationBanner.innerHTML = '<i class="bi bi-fire me-1"></i> Canteen kitchen is currently preparing your meal.';
         } else if (status === 'READY FOR PICKUP') {
+            bubblePlaced.className = 'step-indicator-bubble completed';
             bubbleConfirmed.className = 'step-indicator-bubble completed';
             bubblePreparing.className = 'step-indicator-bubble completed';
             bubbleReady.className = 'step-indicator-bubble active';
@@ -322,11 +324,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             notificationBanner.className = 'alert alert-success border-0 mt-3 mb-0 text-center py-2 small fw-bold';
             notificationBanner.innerHTML = `<i class="bi bi-bell-fill me-1"></i> YOUR FOOD IS READY! Head to the counter and show Token <strong>${escapeHtml(tokenNumber || '')}</strong>.`;
         } else if (status === 'COMPLETED') {
+            bubblePlaced.className = 'step-indicator-bubble completed';
             bubbleConfirmed.className = 'step-indicator-bubble completed';
             bubblePreparing.className = 'step-indicator-bubble completed';
             bubbleReady.className = 'step-indicator-bubble completed';
-            bubbleCompleted.className = 'step-indicator-bubble completed';
-            colCompleted.classList.add('active-step');
+            colReady.classList.add('active-step');
             ticketStatusBadge.className = 'badge bg-secondary fs-6 px-3 py-2 rounded-pill shadow-sm';
             ticketStatusBadge.innerHTML = '<i class="bi bi-check2-all me-1"></i> Order Status: COMPLETED';
             notificationBanner.className = 'alert alert-secondary border-0 mt-3 mb-0 text-center py-2 small fw-semibold';

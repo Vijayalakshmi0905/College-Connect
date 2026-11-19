@@ -18,9 +18,10 @@ import hmac
 from datetime import datetime
 from functools import wraps
 from urllib.parse import urljoin, urlsplit
-from sqlalchemy import text
+from sqlalchemy import text, func, or_
+from sqlalchemy.exc import SQLAlchemyError
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, make_response, abort
+from flask import Flask, current_app, render_template, jsonify, request, redirect, url_for, flash, session, make_response, abort
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
@@ -180,27 +181,9 @@ def is_valid_status_transition(current_status, new_status):
 
 
 def validate_order_payload(data):
-    """Validates student checkout form fields."""
+    """Validate order-specific inputs; identity comes from the logged-in profile."""
     if not data or not isinstance(data, dict):
         return False, "Invalid request payload."
-
-    student_name = (data.get('student_name') or '').strip()
-    if not student_name or len(student_name) < 2:
-        return False, "Please enter your full student name (minimum 2 characters)."
-
-    student_id = (data.get('student_id') or '').strip()
-    if not student_id or len(student_id) < 3:
-        return False, "Please enter a valid Student ID or Roll Number (minimum 3 characters)."
-
-    phone = (data.get('phone') or '').strip()
-    clean_phone = re.sub(r'[\s\-\(\)\+]', '', phone)
-    if clean_phone.startswith('91') and len(clean_phone) == 12:
-        clean_phone = clean_phone[2:]
-    elif clean_phone.startswith('0') and len(clean_phone) == 11:
-        clean_phone = clean_phone[1:]
-
-    if not re.match(r'^[6-9]\d{9}$', clean_phone):
-        return False, "Please enter a valid 10-digit Indian mobile number (e.g., 9876543210)."
 
     pickup_slot = (data.get('pickup_slot') or '').strip()
     if not pickup_slot:
@@ -218,10 +201,6 @@ def validate_order_payload(data):
             return False, f"Invalid quantity for {item.get('name')}."
 
     return True, {
-        'student_name': student_name,
-        'student_id': student_id,
-        'phone': f"+91 {clean_phone}",
-        'raw_phone': clean_phone,
         'pickup_slot': pickup_slot,
         'payment_method': data.get('payment_method', 'Pay at Canteen Counter / UPI'),
         'items': items
@@ -392,7 +371,18 @@ def logout():
 @app.route('/')
 def home():
     """Renders the College Connect homepage."""
-    return render_template('index.html')
+    # Feature real catalogue records, ordered by historical quantity where
+    # available. Keep every field (including availability) sourced from DB.
+    popularity_rows = (
+        db.session.query(OrderItem.food_item_id, func.sum(OrderItem.quantity))
+        .filter(OrderItem.food_item_id.isnot(None))
+        .group_by(OrderItem.food_item_id)
+        .all()
+    )
+    popularity = {food_id: quantity for food_id, quantity in popularity_rows}
+    db_items = FoodItem.query.all()
+    db_items.sort(key=lambda item: (-popularity.get(item.id, 0), item.id))
+    return render_template('index.html', popular_items=db_items[:4])
 
 
 @app.route('/menu')
@@ -401,6 +391,171 @@ def menu():
     db_items = FoodItem.query.order_by(FoodItem.id.asc()).all()
     items_data = [item.to_dict() for item in db_items] if db_items else FOOD_ITEMS
     return render_template('menu.html', items=items_data, categories=CATEGORIES)
+
+
+def _assistant_is_order_question(message):
+    return bool(re.search(
+        r'\b(track|tracking|pickup token|pick.?up token|my\s+(?:latest\s+)?order|order\s+(?:status|update|progress|token|history))\b|\bCC-\d+\b',
+        message,
+        re.I,
+    ))
+
+
+def _assistant_budget(message):
+    patterns = (
+        r'\b(?:under|below|within|up\s*to|upto|budget(?:\s+(?:of|is))?|for)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d{1,2})?)',
+        r'(?:₹|rs\.?\s*)(\d+(?:\.\d{1,2})?)',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, message, re.I)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return None
+    return None
+
+
+def _assistant_food_label(item):
+    availability = 'available' if item.available else 'currently unavailable'
+    food_type = 'vegetarian' if item.is_veg else 'non-vegetarian'
+    return f'{item.name} — ₹{item.price:g}, {availability}, {food_type}'
+
+
+def _assistant_menu_reply(message):
+    """Answer food and budget questions from current catalogue rows only."""
+    foods = FoodItem.query.order_by(FoodItem.name.asc()).all()
+    if not foods:
+        return 'The canteen menu is not available right now. Please check the Food Menu page again soon.'
+
+    lowered = message.casefold()
+    mentioned_item = next((item for item in sorted(foods, key=lambda row: len(row.name), reverse=True)
+                          if item.name.casefold() in lowered), None)
+    if mentioned_item:
+        return _assistant_food_label(mentioned_item) + '.'
+
+    budget = _assistant_budget(message)
+    wants_nonveg = bool(re.search(r'\b(non.?veg|non.?vegetarian|chicken|egg)\b', lowered))
+    wants_veg = not wants_nonveg and bool(re.search(r'\b(veg|vegetarian)\b', lowered))
+    if budget is not None:
+        choices = [item for item in foods if item.available and item.price <= budget]
+        if wants_veg:
+            choices = [item for item in choices if item.is_veg]
+        elif wants_nonveg:
+            choices = [item for item in choices if not item.is_veg]
+        choices.sort(key=lambda item: (item.price, item.name.casefold()))
+        if not choices:
+            return f'I couldn’t find an available menu item within ₹{budget:g}' + (' in that food category.' if wants_veg or wants_nonveg else '.')
+        recommendations = '\n'.join(f'• {_assistant_food_label(item)}' for item in choices[:5])
+        return f'Here are current options within ₹{budget:g}:\n{recommendations}'
+
+    if wants_veg or wants_nonveg:
+        foods = [item for item in foods if (item.is_veg if wants_veg else not item.is_veg)]
+    if re.search(r'\b(unavailable|sold\s*out|not available)\b', lowered):
+        foods = [item for item in foods if not item.available]
+    else:
+        foods = [item for item in foods if item.available]
+    if not foods:
+        return 'There are no matching items in the current menu right now.'
+
+    items_text = '\n'.join(f'• {_assistant_food_label(item)}' for item in foods[:10])
+    remaining = len(foods) - min(len(foods), 10)
+    if remaining:
+        items_text += f'\n…and {remaining} more. Open Food Menu to see the full list.'
+    return 'Here’s what the current canteen menu shows:\n' + items_text
+
+
+def _assistant_order_reply(message):
+    """Return only the authenticated student's own order progress and token."""
+    if not current_user.is_authenticated:
+        return jsonify({
+            'success': False,
+            'error': 'Please sign in as a student to check your order status and pickup token.',
+            'needs_login': True,
+        }), 401
+    if current_user.role != 'STUDENT':
+        return jsonify({'success': False, 'error': 'Order tracking is available to signed-in students only.'}), 403
+
+    student = current_user.student_profile
+    if not student:
+        return jsonify({'success': False, 'error': 'Your student profile is unavailable. Please contact the college administrator.'}), 403
+
+    ownership = or_(
+        Order.user_id == current_user.id,
+        (Order.user_id.is_(None) & or_(
+            Order.student_profile_id == student.id,
+            Order.student_id == student.student_id,
+        )),
+    )
+    order_id_match = re.search(r'\bCC-\d+\b', message, re.I)
+    query = Order.query.filter(ownership)
+    if order_id_match:
+        order = query.filter_by(order_id=order_id_match.group(0).upper()).first()
+    else:
+        order = query.order_by(Order.created_at.desc(), Order.id.desc()).first()
+
+    if not order:
+        # Use the same response for missing and non-owned order IDs.
+        if order_id_match:
+            return jsonify({'success': False, 'error': 'I couldn’t find that order in your account.'}), 404
+        return jsonify({'success': True, 'intent': 'order_tracking', 'reply': 'There are no orders in your account yet. Once you place an order, I can share its status and pickup token.'}), 200
+
+    status_labels = {
+        'CONFIRMED': 'Confirmed',
+        'PREPARING': 'Preparing',
+        'READY FOR PICKUP': 'Ready for Pickup',
+        'COMPLETED': 'Completed',
+    }
+    reply = (
+        f'Order {order.order_id} is {status_labels.get(order.status, "In progress")}. '
+        f'Pickup token: {order.token_number}. Pickup time: {order.pickup_slot}.'
+    )
+    return jsonify({'success': True, 'intent': 'order_tracking', 'reply': reply}), 200
+
+
+@app.route('/api/assistant', methods=['POST'])
+def assistant_chat():
+    """Read-only canteen assistant backed by the catalogue and owned orders."""
+    payload = request.get_json(silent=True)
+    message = payload.get('message', '') if isinstance(payload, dict) else ''
+    if not isinstance(message, str) or not message.strip():
+        return jsonify({'success': False, 'error': 'Enter a question to continue.'}), 400
+    message = message.strip()
+    if len(message) > 500:
+        return jsonify({'success': False, 'error': 'Please keep your question under 500 characters.'}), 400
+
+    try:
+        if _assistant_is_order_question(message):
+            return _assistant_order_reply(message)
+
+        menu_intent = re.search(
+            r'\b(menu|food|price|cost|available|availability|veg|vegetarian|non.?veg|budget|recommend|recommendation|suggest|eat|dish|item|sold\s*out)\b|₹|\brs\.?\s*\d',
+            message,
+            re.I,
+        )
+        mentioned_food = any(item.name.casefold() in message.casefold() for item in FoodItem.query.all())
+        if menu_intent or mentioned_food:
+            return jsonify({'success': True, 'intent': 'menu', 'reply': _assistant_menu_reply(message)}), 200
+
+        if re.match(r'^(hi|hello|hey|good morning|good afternoon|good evening)\b', message, re.I):
+            reply = 'Hi! I can help you find canteen food, check current prices and availability, recommend meals within a budget, or track your own order after you sign in.'
+        else:
+            reply = 'I can help with the current food menu, prices, availability, vegetarian choices, budget recommendations, and your own order status after sign-in. What would you like to check?'
+        return jsonify({'success': True, 'intent': 'help', 'reply': reply}), 200
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception('Canteen assistant database request failed')
+        return jsonify({
+            'success': False,
+            'error': 'The assistant could not read canteen data right now. Please retry shortly.',
+        }), 503
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Canteen assistant request failed')
+        return jsonify({
+            'success': False,
+            'error': 'The assistant could not complete that request. Please retry shortly.',
+        }), 500
 
 
 @app.route('/cart')
@@ -418,7 +573,11 @@ def cart():
 @no_cache
 def checkout():
     """Renders the Student Checkout page. Requires authentication."""
-    return render_template('checkout.html')
+    student = current_user.student_profile
+    if not student:
+        flash('Your student profile is unavailable. Please contact the college administrator.', 'danger')
+        return redirect(url_for('student_dashboard'))
+    return render_template('checkout.html', student=student)
 
 
 @app.route('/order-confirmation')
